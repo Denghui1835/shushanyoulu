@@ -25,6 +25,9 @@
       "expo-router",
       "expo-secure-store"
     ],
-    "scheme": "yuanqi"
+    "scheme": "yuanqi",
+    "extra": {
+      "apiBaseUrl": "http://192.168.1.100:8000"
+    }
   }
 }

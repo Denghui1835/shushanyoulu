@@ -4,7 +4,7 @@ import {
 } from 'antd'
 import {
   AudioOutlined, AudioMutedOutlined, ThunderboltOutlined, ReloadOutlined,
-  DownloadOutlined, SoundOutlined, EditFilled, EditOutlined,
+  DownloadOutlined, SoundOutlined, EditFilled, EditOutlined, UndoOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 
@@ -16,6 +16,7 @@ interface PodcastScript {
   status: 'none' | 'generating' | 'done' | 'error'
   error: string
   has_audio: boolean
+  can_undo: boolean
   audio_seconds: number
 }
 
@@ -145,6 +146,19 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
     } finally { setSaving(false) }
   }
 
+  const undo = async () => {
+    try {
+      const s = await api.undoPodcastScript(docId, unitIndex)
+      setScript(s)
+      setAudioUrl('')  // 内容回退了，旧音频作废，需重新合成
+      setManualEdit(false)
+      setDraft('')
+      message.success('已撤回上一步')
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '撤回失败')
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* 头部说明 + 动作 */}
@@ -197,6 +211,9 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
                   </div>
                   <Space wrap size={8}>
                     <Button size="small" icon={<EditOutlined />} onClick={openManualEdit}>编辑文稿</Button>
+                    {script.can_undo && (
+                      <Button size="small" icon={<UndoOutlined />} onClick={undo}>撤回上一步</Button>
+                    )}
                     <Button size="small" icon={<ReloadOutlined />} onClick={generate}>重新生成文稿</Button>
                     <Button size="small" type="primary" icon={<AudioOutlined />} loading={genAudio} onClick={genAudioClick}>
                       {script.has_audio ? '重新合成音频' : '合成音频'}

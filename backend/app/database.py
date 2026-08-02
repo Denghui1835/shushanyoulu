@@ -75,6 +75,9 @@ _COLUMN_MIGRATIONS = {
     "flashcards": [
         ("discarded", "ALTER TABLE flashcards ADD COLUMN discarded BOOLEAN DEFAULT 0"),
     ],
+    "podcast_scripts": [
+        ("prev_content", "ALTER TABLE podcast_scripts ADD COLUMN prev_content TEXT"),
+    ],
 }
 
 

@@ -142,6 +142,9 @@ export const api = {
   // 文稿手动保存（直接编辑，不经 AI）
   savePodcastScript: (docId: string, unitIndex: number, content: string) =>
     http.put(`/podcast/${docId}/script`, { content }, { params: { unit_index: unitIndex } }).then(r => r.data),
+  // 撤回上一步修改
+  undoPodcastScript: (docId: string, unitIndex: number) =>
+    http.post(`/podcast/${docId}/undo-script`, null, { params: { unit_index: unitIndex } }).then(r => r.data),
 }
 
 /** 解析 SSE 响应为事件对象序列。 */

@@ -13,7 +13,9 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.core.podcast import generate_podcast_script, edit_podcast_script, update_podcast_script
+from app.core.podcast import (
+    generate_podcast_script, edit_podcast_script, update_podcast_script, undo_podcast_script,
+)
 from app.core.podcast_tts import (
     TTSNotConfiguredError, TTSError, estimate_audio_seconds, script_to_audio,
 )
@@ -45,6 +47,7 @@ def _serialize(s: PodcastScript) -> dict:
         "id": s.id, "document_id": s.document_id, "unit_index": s.unit_index,
         "content": s.content, "status": s.status, "error": s.error,
         "has_audio": bool(s.audio_path),
+        "can_undo": bool(s.prev_content),  # 是否有可撤回的上一步
         "audio_seconds": estimate_audio_seconds(s.content),
         "updated_at": s.updated_at.isoformat(),
     }
@@ -155,6 +158,20 @@ async def edit_script(document_id: str, data: EditScriptIn,
     except Exception as e:
         logger.exception("播客文稿修改失败 doc=%s unit=%s", document_id, unit_index)
         raise HTTPException(status_code=500, detail=f"文稿修改失败：{str(e)[:200]}")
+    return _serialize(script)
+
+
+@router.post("/{document_id}/undo-script")
+async def undo_script(document_id: str, unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+    """撤回上一步修改：恢复上次修改前的文稿。"""
+    doc = await _get_doc(db, document_id)
+    try:
+        script = await undo_podcast_script(db, doc, unit_index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("播客文稿撤回失败 doc=%s unit=%s", document_id, unit_index)
+        raise HTTPException(status_code=500, detail=f"撤回失败：{str(e)[:200]}")
     return _serialize(script)
 
 

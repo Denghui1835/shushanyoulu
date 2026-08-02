@@ -69,4 +69,5 @@ class PodcastScript(Base):
     audio_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="generating")  # generating / done / error
     error: Mapped[str] = mapped_column(Text, default="")
+    prev_content: Mapped[str | None] = mapped_column(Text, nullable=True)  # 撤回上一步：上次修改前的文稿
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)

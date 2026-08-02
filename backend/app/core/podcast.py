@@ -134,3 +134,56 @@ async def _delete_audio(script: PodcastScript) -> None:
             Path(script.audio_path).unlink(missing_ok=True)
         except Exception as e:
             logger.warning("清理播客音频失败: %s", e)
+
+
+# ---------------------------------------------------------------- 文稿修改（打字/语音指令）
+
+_EDIT_PROMPT_TEMPLATE = """请根据用户要求，修改下面这期双人 AI 播客的对话文稿。
+
+本期播客对应：{unit_title}
+
+原文稿：
+{script}
+
+用户修改要求：
+{instruction}
+
+要求：
+- 只输出修改后的完整文稿，不要任何多余文字
+- 严格保持「主播A：」/「主播B：」双人对谈格式，每句独立成行，两位主播交替发言
+- 保持口语化、有情感、有过渡衔接
+- 修改幅度贴合用户要求：小改就局部调整，大改就整体重写"""
+
+
+async def edit_podcast_script(db: AsyncSession, document: Document, unit_index: int,
+                              instruction: str) -> PodcastScript:
+    """按用户指令（打字/语音）修改播客文稿。改动后清空旧音频（须重新合成）。"""
+    script = (await db.execute(select(PodcastScript).where(
+        PodcastScript.document_id == document.id, PodcastScript.unit_index == unit_index
+    ))).scalars().first()
+    if not script or script.status != "done" or not script.content:
+        raise ValueError("请先生成播客文稿，再修改")
+
+    unit = await _get_unit(db, document, unit_index)
+    unit_title = unit["title"] if unit else f"第 {unit_index + 1} 单元"
+    prompt = _EDIT_PROMPT_TEMPLATE.format(unit_title=unit_title,
+                                          script=script.content, instruction=instruction)
+    adapter = api_client.get_adapter(settings.default_model)
+    resp = await adapter.chat_completion(
+        [{"role": "user", "content": prompt}],
+        AdapterConfig(temperature=0.8, max_tokens=2500, timeout=settings.request_timeout),
+    )
+    content = (resp.content or "").strip()
+    if not content:
+        raise ValueError("模型返回为空，请重试")
+    if not _is_valid_script(content):
+        raise ValueError("修改后的文稿不是有效的双人对谈格式，请换个说法重试")
+
+    script.content = content
+    script.status = "done"
+    await _delete_audio(script)
+    script.audio_path = None
+    await db.commit()
+    await db.refresh(script)
+    logger.info("播客文稿已修改: doc=%s unit=%s (%d 字)", document.id, unit_index, len(content))
+    return script

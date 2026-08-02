@@ -8,11 +8,12 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.core.podcast import generate_podcast_script
+from app.core.podcast import generate_podcast_script, edit_podcast_script
 from app.core.podcast_tts import (
     TTSNotConfiguredError, TTSError, estimate_audio_seconds, script_to_audio,
 )
@@ -112,6 +113,28 @@ async def delete_podcast(document_id: str, unit_index: int = 0, db: AsyncSession
 
 
 # ---------------------------------------------------------------- 文稿
+
+class EditScriptIn(BaseModel):
+    instruction: str
+
+
+@router.post("/{document_id}/edit-script")
+async def edit_script(document_id: str, data: EditScriptIn,
+                      unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+    """按用户指令（打字/语音）修改播客文稿。改后旧音频作废，需重新合成。"""
+    instruction = (data.instruction or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=400, detail="请输入修改要求")
+    doc = await _get_doc(db, document_id)
+    try:
+        script = await edit_podcast_script(db, doc, unit_index, instruction)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("播客文稿修改失败 doc=%s unit=%s", document_id, unit_index)
+        raise HTTPException(status_code=500, detail=f"文稿修改失败：{str(e)[:200]}")
+    return _serialize(script)
+
 
 @router.post("/{document_id}/script")
 async def generate_script(document_id: str, unit_index: int = 0, db: AsyncSession = Depends(get_db)):

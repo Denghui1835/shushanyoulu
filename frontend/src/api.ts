@@ -136,6 +136,9 @@ export const api = {
   listPodcasts: () => http.get('/podcast/list').then(r => r.data),
   deletePodcast: (docId: string, unitIndex: number) =>
     http.delete(`/podcast/${docId}`, { params: { unit_index: unitIndex } }).then(r => r.data),
+  // 文稿修改：打字/语音输入修改要求
+  editPodcastScript: (docId: string, unitIndex: number, instruction: string) =>
+    http.post(`/podcast/${docId}/edit-script`, { instruction }, { params: { unit_index: unitIndex } }).then(r => r.data),
 }
 
 /** 解析 SSE 响应为事件对象序列。 */

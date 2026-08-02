@@ -40,3 +40,14 @@ class PlanTask(Base):
     document_id: Mapped[str | None] = mapped_column(String(36), nullable=True)  # 关联的学习资料
     status: Mapped[str] = mapped_column(String(16), default="todo")  # todo / done / skipped
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class CheckIn(Base):
+    """每日打卡：每天一条，用于激励连续学习（streak）。"""
+    __tablename__ = "check_ins"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), index=True)
+    checkin_date: Mapped[str] = mapped_column(String(16), index=True)  # YYYY-MM-DD
+    points: Mapped[int] = mapped_column(Integer, default=10)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from app.core.book_split import (
 )
 from app.core.parsing import parse_file, chunk_text
 from app.core.voice_agent import run_agent_turn
+from app.core.project_package import export_project, import_project
 
 logger = logging.getLogger("yuanqi.api.projects")
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -84,6 +85,43 @@ async def create_project(data: ProjectIn, db: AsyncSession = Depends(get_db)):
     db.add(p)
     await db.commit()
     await db.refresh(p)
+    return {"id": p.id, "title": p.title, "description": p.description,
+            "icon": p.icon, "document_count": 0, "created_at": p.created_at.isoformat()}
+
+
+@router.get("/export/{project_id}")
+async def export_project_endpoint(project_id: str, db: AsyncSession = Depends(get_db)):
+    """导出项目为 .yqp（zip）文件，供社区分享/下载。"""
+    try:
+        content = await export_project(db, project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("导出失败 project=%s", project_id)
+        raise HTTPException(status_code=500, detail=f"导出失败：{str(e)[:200]}")
+    return Response(
+        content=content, media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="project_{project_id[:8]}.yqp"'},
+    )
+
+
+@router.post("/import")
+async def import_project_endpoint(file: UploadFile = File(...),
+                                  title: str | None = Form(None),
+                                  db: AsyncSession = Depends(get_db)):
+    """导入 .yqp 项目包，重建整个项目。"""
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="文件为空")
+    if len(content) > settings.max_project_import_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="文件过大")
+    try:
+        p = await import_project(db, content, title)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("导入失败")
+        raise HTTPException(status_code=500, detail=f"导入失败：{str(e)[:200]}")
     return {"id": p.id, "title": p.title, "description": p.description,
             "icon": p.icon, "document_count": 0, "created_at": p.created_at.isoformat()}
 

@@ -3,7 +3,7 @@ import {
   Input, Button, Space, Card, Tag, Progress, Modal, Form, InputNumber, message, Spin,
 } from 'antd'
 import {
-  SendOutlined, ThunderboltOutlined, CalendarOutlined, CheckOutlined, PlusOutlined,
+  SendOutlined, ThunderboltOutlined, CalendarOutlined, CheckOutlined, PlusOutlined, FireOutlined,
 } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -17,6 +17,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<any>(null)
+  const [checkin, setCheckin] = useState<any>(null)
   const [planOpen, setPlanOpen] = useState(false)
   const [planning, setPlanning] = useState(false)
   const [profileForm] = Form.useForm()
@@ -33,7 +34,21 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
         daily_minutes: s.user?.daily_minutes,
       })
       if (!s.user?.onboarded) setPlanOpen(true)
+      const c = await api.getCheckin()
+      setCheckin(c)
     } catch { /* backend not ready */ }
+  }
+
+  const doCheckin = async () => {
+    try {
+      const r = await api.doCheckin()
+      setCheckin(r)
+      message.success(`打卡成功！连续 ${r.streak} 天，元气值 +${r.points_gained} ⚡`)
+      onActivity?.()
+      loadStatus()
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '打卡失败')
+    }
   }
 
   const init = async () => {
@@ -114,6 +129,27 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
+      {/* 每日打卡 */}
+      <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <span style={{ fontSize: 30 }}>🔥</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600 }}>
+            连续打卡 <b style={{ color: '#fa8c16' }}>{checkin?.streak ?? 0}</b> 天
+          </div>
+          <div style={{ color: '#999', fontSize: 12 }}>
+            {checkin?.checked_today ? '今天已打卡 ✓，明天继续，别断链子！' : '今天还没打卡，学一点就来打个卡吧'}
+          </div>
+        </div>
+        <Button
+          type={checkin?.checked_today ? 'default' : 'primary'}
+          icon={<FireOutlined />}
+          disabled={checkin?.checked_today}
+          onClick={doCheckin}
+        >
+          {checkin?.checked_today ? '已打卡' : '今日打卡'}
+        </Button>
+      </div>
+
       {/* 状态卡片 */}
       <div className="yq-status-grid">
         <div className="yq-stat-card">

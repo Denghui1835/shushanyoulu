@@ -159,13 +159,24 @@ export default function FlashcardPage() {
           </div>
 
           <Card
-            style={{ cursor: 'pointer', minHeight: 180, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ cursor: 'pointer', minHeight: 200, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => setFlipped(f => !f)}
-            styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180 } }}
+            styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 } }}
           >
-            <div style={{ fontSize: 20, lineHeight: 1.8 }}>
-              {flipped ? card.back : card.front}
-            </div>
+            {flipped ? (
+              <div style={{ fontSize: 18, lineHeight: 1.8 }}>{card.back}</div>
+            ) : (
+              <div>
+                {/* 图形化记忆提示：大 emoji + 联想画面 */}
+                {card.visual && (
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>{card.visual.split(' ')[0]}</div>
+                )}
+                <div style={{ fontSize: 20, lineHeight: 1.8 }}>{card.front}</div>
+                {card.visual && (
+                  <div style={{ fontSize: 12, color: '#8c6ff0', marginTop: 8, opacity: 0.8 }}>{card.visual}</div>
+                )}
+              </div>
+            )}
           </Card>
           <div style={{ textAlign: 'center', color: '#999', fontSize: 12, marginTop: 8 }}>
             点击卡片翻转{flipped ? '' : '，回忆答案后再翻'}

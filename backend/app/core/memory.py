@@ -49,8 +49,10 @@ async def generate_flashcards(db: AsyncSession, document_id: str, count: int = 1
 {src}
 
 输出 JSON 数组（不要多余文字），每项：
-{{"front": "正面：知识点/问题", "back": "背面：简洁答案（关键概念或数字）"}}
-要求：每张卡片一个独立知识点，正面提问、背面作答，中文字数各不超过 60 字。"""
+{{"front": "正面：知识点/问题", "back": "背面：简洁答案（关键概念或数字）", "visual": "图形化记忆提示"}}
+要求：
+- 每张卡片一个独立知识点，正面提问、背面作答，中文字数各不超过 60 字
+- visual 是「图形化记忆提示」：1-2 个贴切的 emoji + 一句画面联想（如「🧭 指南针：指北针永远指向北，记方向感」），帮大脑建立图像记忆，长度 ≤25 字"""
 
     adapter = api_client.get_adapter(settings.default_model)
     resp = await adapter.chat_completion(
@@ -65,7 +67,8 @@ async def generate_flashcards(db: AsyncSession, document_id: str, count: int = 1
         back = str(c.get("back", "")).strip()
         if not front or not back:
             continue
-        cards.append(Flashcard(document_id=doc.id, front=front, back=back))
+        cards.append(Flashcard(document_id=doc.id, front=front, back=back,
+                               visual=str(c.get("visual", "")).strip()))
     db.add_all(cards)
     await db.commit()
     logger.info("Generated %d flashcards for doc %s", len(cards), document_id)

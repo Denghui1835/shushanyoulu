@@ -11,6 +11,7 @@ export const api = {
   getMessages: (sessionId: string) =>
     http.get('/companion/messages', { params: { session_id: sessionId } }).then(r => r.data),
   createPlan: (data?: any) => http.post('/companion/plan', data).then(r => r.data),
+  adjustPlan: () => http.post('/companion/plan/adjust').then(r => r.data),
 
   // projects（书架中的书）
   listProjects: () => http.get('/projects').then(r => r.data),
@@ -23,6 +24,17 @@ export const api = {
   /** 新建分组（部分/卷）：可把指定章节纳入分组 */
   createGroup: (projectId: string, data: { title: string; chapter_ids?: string[] }) =>
     http.post(`/projects/${projectId}/groups`, data).then(r => r.data),
+  // 作品社区：导出/导入
+  exportProjectUrl: (id: string) => `/api/projects/export/${id}`,
+  importProject: (file: File, title?: string) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    if (title) fd.append('title', title)
+    return http.post('/projects/import', fd).then(r => r.data)
+  },
+  getCommunityCatalog: () => http.get('/community/catalog').then(r => r.data),
+  communityImport: (url: string) =>
+    http.post('/community/import', null, { params: { url } }).then(r => r.data),
   /** 语音助手：对话 + 提议章节修改（SSE）。 */
   agentChat: (projectId: string, message: string, history: any[]) =>
     streamSSE(`/api/projects/${projectId}/agent`, { message, history }),
@@ -104,6 +116,9 @@ export const api = {
   completeTask: (taskId: string) =>
     http.post(`/study/tasks/${taskId}/complete`).then(r => r.data),
   getActivity: () => http.get('/study/activity').then(r => r.data),
+  // 每日打卡
+  getCheckin: () => http.get('/study/checkin').then(r => r.data),
+  doCheckin: () => http.post('/study/checkin').then(r => r.data),
 
   // reading: content
   getReadingContent: (docId: string) =>

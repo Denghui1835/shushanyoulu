@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     azure_tts_voice_b: str = "zh-CN-YunxiNeural"
     podcast_audio_dir: str = str(BASE_DIR / "data" / "podcast_audio")
 
+    # 作品社区：社区目录 JSON 的 URL（网盘/GitHub raw 直链），空则不启用社区列表
+    community_catalog_url: str = ""
+    # 项目 .yqp 导入上限（MB）：含文档 PDF，可大于普通上传上限
+    max_project_import_mb: int = 2000
+
     # CORS
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 

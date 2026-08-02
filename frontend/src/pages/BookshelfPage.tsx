@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Button, Modal, Form, Input, Select, Empty, Popconfirm, message, Spin } from 'antd'
-import { PlusOutlined, ReadOutlined, DeleteOutlined, FolderOpenOutlined } from '@ant-design/icons'
+import { Card, Button, Modal, Form, Input, Select, Empty, Popconfirm, message, Spin, Upload } from 'antd'
+import { PlusOutlined, ReadOutlined, DeleteOutlined, FolderOpenOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
@@ -49,6 +49,17 @@ export default function BookshelfPage() {
     load()
   }
 
+  const importing = (opt: any) => {
+    message.loading({ content: '正在导入项目…', key: 'yqp-import', duration: 0 })
+    api.importProject(opt.file)
+      .then((p: any) => {
+        message.success({ content: `项目「${p.title}」导入成功！`, key: 'yqp-import' })
+        load()
+      })
+      .catch((e: any) => message.error({ content: e?.response?.data?.detail || '导入失败', key: 'yqp-import' }))
+      .finally(() => opt.onSuccess && opt.onSuccess())
+  }
+
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
   return (
@@ -60,7 +71,10 @@ export default function BookshelfPage() {
           <div style={{ color: '#999', fontSize: 13 }}>每个项目就是一本「书」，打开书才能看到章节与功能</div>
         </div>
         <div style={{ marginLeft: 'auto' }}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+          <Upload accept=".yqp" showUploadList={false} customRequest={importing}>
+            <Button icon={<UploadOutlined />}>导入项目</Button>
+          </Upload>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ marginLeft: 8 }}>
             创建项目
           </Button>
         </div>
@@ -82,6 +96,9 @@ export default function BookshelfPage() {
               onClick={() => navigate(`/project/${p.id}`)}
               actions={[
                 <FolderOpenOutlined key="open" onClick={(e) => { e.stopPropagation(); navigate(`/project/${p.id}`) }} />,
+                <a key="export" href={api.exportProjectUrl(p.id)} download onClick={(e) => e.stopPropagation()}>
+                  <DownloadOutlined title="导出 .yqp" />
+                </a>,
                 <Popconfirm key="del" title={`删除项目「${p.title}」？其下章节将一并删除`} onConfirm={(e) => { e?.stopPropagation(); remove(p) }}>
                   <DeleteOutlined onClick={(e) => e.stopPropagation()} />
                 </Popconfirm>,

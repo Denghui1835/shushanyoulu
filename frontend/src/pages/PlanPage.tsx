@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Tag, Button, Timeline, Empty, message, Spin } from 'antd'
-import { CheckOutlined, ThunderboltOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { Card, Tag, Button, Timeline, Empty, message, Spin, Popconfirm } from 'antd'
+import { CheckOutlined, ThunderboltOutlined, ClockCircleOutlined, SyncOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api } from '../api'
 
@@ -28,6 +28,18 @@ export default function PlanPage() {
     await api.completeTask(task.id)
     message.success('任务完成，元气值 +5 ⚡')
     load()
+  }
+
+  const [adjusting, setAdjusting] = useState(false)
+  const adjust = async () => {
+    setAdjusting(true)
+    try {
+      await api.adjustPlan()
+      message.success('计划已根据你的进度动态调整')
+      load()
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '调整失败')
+    } finally { setAdjusting(false) }
   }
 
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
@@ -62,6 +74,11 @@ export default function PlanPage() {
         </div>
         <div style={{ marginTop: 12, color: '#999', fontSize: 13 }}>
           共 {plan.total_days} 天 · 已完成 {doneCount}/{tasks.length} 项任务
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <Popconfirm title="按当前进度重排剩余学习安排？已掌握的内容会压缩，薄弱点会补上" onConfirm={adjust}>
+            <Button size="small" icon={<SyncOutlined />} loading={adjusting}>按进度调整计划</Button>
+          </Popconfirm>
         </div>
       </div>
 

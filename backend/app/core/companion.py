@@ -42,7 +42,9 @@ PERSONA = """你是「元气搭子」，学习者最亲的 AI 学伴——不是
 2. 有始有终：盯着计划任务，完成了好好庆祝并给出下一步；没完成先体谅，再温和地督促，别让TA有负罪感
 3. 科学复习：到期闪卡当成「重要约会」来提醒（间隔复习比新学更重要），语气可以急一点，但不能凶
 4. 内容落地：讲知识时优先引用TA自己的学习资料，讲得具体、讲得TA听得懂，别泛泛而谈
-5. 不强求：不连珠炮式催促，给TA喘息空间——TA累了就说「先休息吧，明天元气满满再战」，这也是陪伴"""
+5. 不强求：不连珠炮式催促，给TA喘息空间——TA累了就说「先休息吧，明天元气满满再战」，这也是陪伴
+6. 启发式教学：回答学习问题别急着给答案——先抛一个引导性的小问题（「你觉得关键在哪？」「如果是你会怎么想？」），让TA先动脑；TA卡住了再给提示，最后才讲透。但简单问题或TA明确要答案时直接答，别装深沉
+7. 情绪疏导：TA说累、焦虑、想放弃时，先共情（「最近是不是压力有点大？」），把大目标拆成小步、肯定TA已经做到的部分，帮TA重建信心；绝不讲大道理、不灌鸡汤"""
 
 
 # ---------------------------------------------------------------- context
@@ -302,6 +304,117 @@ async def generate_plan(db: AsyncSession, user: User) -> LearningPlan:
     await db.commit()
     await db.refresh(plan)
     db.add(StudyLog(user_id=user.id, kind="plan", detail=f"制定了计划「{plan.title}」", points=5))
+    await db.commit()
+    return plan
+
+
+async def adjust_plan(db: AsyncSession, user: User) -> LearningPlan:
+    """动态调整计划：根据任务完成、做题正确率、待复习闪卡，重排一份从今天开始的新计划。
+
+    思路：压缩已掌握内容、补齐薄弱环节、把复习任务插进中后期；旧计划暂停。
+    """
+    materials = (await db.execute(
+        select(Document).where(Document.user_id == user.id)
+    )).scalars().all()
+    mat_lines = [f"- 《{d.title}》({d.content_type}, {d.chunk_count} 个片段)" for d in materials] or ["- (暂未上传资料，计划先以通识为主)"]
+
+    # 进度上下文：旧计划完成情况 + 做题正确率 + 待复习闪卡
+    plan: LearningPlan | None = None
+    if user.active_plan_id:
+        plan = await db.get(LearningPlan, user.active_plan_id)
+    prev_lines: list[str] = []
+    if plan:
+        tasks = (await db.execute(
+            select(PlanTask).where(PlanTask.plan_id == plan.id).order_by(PlanTask.day_index)
+        )).scalars().all()
+        for t in tasks:
+            mark = "✅" if t.status == "done" else "⬜"
+            prev_lines.append(f"{mark} 第{t.day_index}天[{t.task_type}] {t.title}")
+
+    from app.core.quiz import quiz_stats
+    from app.core.memory import due_count
+    stats = await quiz_stats(db)
+    due = await due_count(db)
+
+    progress = "\n".join(prev_lines) if prev_lines else "（暂无旧计划）"
+    prompt = f"""为学习者动态调整学习计划。请通读【已有学习情况】，做这些调整：
+- 已掌握（✅ 完成）的内容压缩或去掉，别再重复
+- 未完成的、以及做题薄弱的地方，安排进新计划重点补
+- 复习(review)任务按 FSRS 节奏插到中后期，别挤在开头
+- total_days 从今天起算，时间长度合理（不夸大不缩水）
+
+学习者画像：
+- 称呼: {user.name}
+- 学习目标: {user.goal}
+- 目标详情: {user.goal_detail or '(无)'}
+- 每天可投入: {user.daily_minutes} 分钟
+
+【已有学习情况】
+旧计划：{plan.title if plan else '（无）'}
+{progress}
+做题正确率：{stats['total']} 次作答，{(stats['accuracy'] * 100):.0f}% 正确
+待复习闪卡：{due} 张到期
+
+已上传的学习资料：
+{chr(10).join(mat_lines)}
+
+{_PLAN_SCHEMA_HINT}"""
+    messages = [
+        {"role": "system", "content": PERSONA},
+        {"role": "user", "content": prompt},
+    ]
+    adapter = api_client.get_adapter(settings.default_model)
+    resp = await adapter.chat_completion(
+        messages, AdapterConfig(temperature=0.6, max_tokens=3000)
+    )
+    data = _extract_json(resp.content)
+    logger.info("调整后计划 JSON: %.200s", data)
+
+    plan = LearningPlan(
+        user_id=user.id,
+        title=data.get("title", "调整后的学习计划"),
+        goal=user.goal,
+        summary=data.get("summary", ""),
+        total_days=max(1, int(data.get("total_days", 7))),
+        status="active",
+    )
+    db.add(plan)
+    await db.flush()
+
+    today = date.today()
+    seen_days: set[int] = set()
+    for t in data.get("tasks", []):
+        try:
+            day = int(t.get("day", 1))
+        except (TypeError, ValueError):
+            day = 1
+        if day in seen_days:
+            continue
+        seen_days.add(day)
+        db.add(PlanTask(
+            plan_id=plan.id,
+            day_index=day,
+            scheduled_date=(today + timedelta(days=day - 1)).strftime("%Y-%m-%d"),
+            title=str(t.get("title", "学习任务"))[:160],
+            description=str(t.get("description", "")),
+            task_type=t.get("type", "learn") if t.get("type") in ("learn", "practice", "review", "chat") else "learn",
+            document_id=materials[0].id if materials else None,
+        ))
+
+    # 暂停旧计划，激活新计划
+    prev = (await db.execute(
+        select(LearningPlan).where(
+            LearningPlan.user_id == user.id, LearningPlan.status == "active"
+        )
+    )).scalars().all()
+    for p in prev:
+        if p.id != plan.id:
+            p.status = "paused"
+    user.active_plan_id = plan.id
+
+    await db.commit()
+    await db.refresh(plan)
+    db.add(StudyLog(user_id=user.id, kind="plan", detail=f"动态调整了计划「{plan.title}」", points=3))
     await db.commit()
     return plan
 

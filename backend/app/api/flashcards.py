@@ -96,7 +96,7 @@ async def delete_flashcard(card_id: str, db: AsyncSession = Depends(get_db)):
 def _serialize(c: Flashcard) -> dict:
     return {
         "id": c.id, "document_id": c.document_id, "front": c.front, "back": c.back,
-        "status": c.status,
+        "visual": c.visual, "status": c.status,
         "due_at": c.due_at.isoformat() if c.due_at else None,
         "reps": c.reps, "lapses": c.lapses, "discarded": bool(c.discarded),
     }

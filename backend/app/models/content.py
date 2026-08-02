@@ -101,6 +101,7 @@ class Flashcard(Base):
     document_id: Mapped[str] = mapped_column(String(36), ForeignKey("documents.id"), index=True)
     front: Mapped[str] = mapped_column(Text, default="")
     back: Mapped[str] = mapped_column(Text, default="")
+    visual: Mapped[str] = mapped_column(Text, default="")  # 图形化记忆提示：emoji + 联想画面
     status: Mapped[str] = mapped_column(String(16), default="new")  # new / learning / review
     due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     stability: Mapped[float] = mapped_column(Float, default=0.0)

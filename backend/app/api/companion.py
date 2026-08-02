@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models import (
     User, ChatSession, ChatMessage, LearningPlan, PlanTask, StudyLog,
 )
-from app.core.companion import generate_plan, stream_chat, build_context, _today_str
+from app.core.companion import generate_plan, adjust_plan, stream_chat, build_context, _today_str
 from app.core.memory import due_count
 
 logger = logging.getLogger("yuanqi.api.companion")
@@ -141,6 +141,30 @@ async def create_plan(data: PlanIn | None = None, db: AsyncSession = Depends(get
             "id": plan.id, "title": plan.title, "summary": plan.summary,
             "total_days": plan.total_days, "status": plan.status,
         },
+        "tasks": [{
+            "id": t.id, "day": t.day_index, "scheduled_date": t.scheduled_date,
+            "title": t.title, "description": t.description, "type": t.task_type,
+            "status": t.status,
+        } for t in tasks],
+    }
+
+
+@router.post("/plan/adjust")
+async def adjust_plan_endpoint(db: AsyncSession = Depends(get_db)):
+    """动态调整计划：按当前进度重排剩余学习安排，生成新的活跃计划。"""
+    user = await get_or_create_user(db)
+    if not user.goal.strip():
+        raise HTTPException(status_code=400, detail="请先告诉我你的学习目标")
+    try:
+        plan = await adjust_plan(db, user)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"计划调整失败：{e}")
+    tasks = (await db.execute(
+        select(PlanTask).where(PlanTask.plan_id == plan.id).order_by(PlanTask.day_index)
+    )).scalars().all()
+    return {
+        "plan": {"id": plan.id, "title": plan.title, "summary": plan.summary,
+                 "total_days": plan.total_days, "status": plan.status},
         "tasks": [{
             "id": t.id, "day": t.day_index, "scheduled_date": t.scheduled_date,
             "title": t.title, "description": t.description, "type": t.task_type,

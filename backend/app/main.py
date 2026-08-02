@@ -79,6 +79,7 @@ from app.api.pipeline import router as pipeline_router
 from app.api.study import router as study_router
 from app.api.reading import router as reading_router
 from app.api.podcast import router as podcast_router
+from app.api.community import router as community_router
 
 app.include_router(companion_router)
 app.include_router(documents_router)
@@ -90,6 +91,7 @@ app.include_router(pipeline_router)
 app.include_router(study_router)
 app.include_router(reading_router)
 app.include_router(podcast_router)
+app.include_router(community_router)
 
 
 @app.get("/")

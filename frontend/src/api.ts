@@ -154,12 +154,12 @@ export async function* streamSSE(url: string, body: any): AsyncGenerator<any> {
   }
 }
 
-/** 同上，但用 FormData（multipart）发起，用于整书导入等。 */
+/** 同上，但用 FormData（multipart）发起，用于整书导入等。
+ *  注意：done 事件也产出（内含 message/warnings，供导入页展示），由调用方结束循环。 */
 export async function* streamSSEForm(url: string, formData: FormData): AsyncGenerator<any> {
   const resp = await fetch(url, { method: 'POST', body: formData })
   for await (const evt of readSSE(resp)) {
     if (evt.type === 'delta') yield evt.content
-    else if (evt.type === 'done') return
     else if (evt.type === 'error') throw new Error(evt.content || evt.message || '请求失败')
     else yield evt
   }

@@ -92,7 +92,8 @@ async def build_context(db: AsyncSession, user: User, message: str) -> dict:
                 day = _active_day_index(tasks)
                 today_tasks = [t for t in tasks if t.day_index == day]
             ctx["today_tasks"] = [
-                {"title": t.title, "type": t.task_type, "status": t.status}
+                {"id": t.id, "title": t.title, "type": t.task_type, "status": t.status,
+                 "scheduled_date": t.scheduled_date, "document_id": t.document_id}
                 for t in today_tasks
             ]
             ctx["plan"]["progress"] = {

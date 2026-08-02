@@ -504,14 +504,16 @@ export default function ProjectDetailPage() {
     try {
       for await (const evt of streamSSE(`/api/pipeline/${c.id}/run`, {})) {
         const e = typeof evt === 'string' ? JSON.parse(evt) : evt
-        if (e.type === 'knowledge') { setPipeProgress(25); setPipeMsg('生成知识树…') }
-        if (e.type === 'knowledge_done') { setPipeProgress(40); setPipeMsg(`知识树完成（${e.count} 节点）`) }
-        if (e.type === 'quiz') { setPipeProgress(55); setPipeMsg('生成题目…') }
-        if (e.type === 'quiz_done') { setPipeProgress(70); setPipeMsg(`题目完成（${e.count} 道）`) }
-        if (e.type === 'flashcards') { setPipeProgress(80); setPipeMsg('生成闪卡…') }
-        if (e.type === 'flashcards_done') { setPipeProgress(90); setPipeMsg(`闪卡完成（${e.count} 张）`) }
-        if (e.type === 'done') { setPipeProgress(100); setPipeMsg('全部生成完成 🎉') }
-        if (e.type === 'error') { setPipeProgress(100); setPipeMsg(`⚠️ ${e.message}`) }
+        // 后端 pipeline 事件字段是 stage（非 type），兼容两者
+        const stage = e.stage || e.type
+        if (stage === 'knowledge') { setPipeProgress(25); setPipeMsg('生成知识树…') }
+        else if (stage === 'knowledge_done') { setPipeProgress(40); setPipeMsg(`知识树完成（${e.count} 节点）`) }
+        else if (stage === 'quiz') { setPipeProgress(55); setPipeMsg('生成题目…') }
+        else if (stage === 'quiz_done') { setPipeProgress(70); setPipeMsg(`题目完成（${e.count} 道）`) }
+        else if (stage === 'flashcards') { setPipeProgress(80); setPipeMsg('生成闪卡…') }
+        else if (stage === 'flashcards_done') { setPipeProgress(90); setPipeMsg(`闪卡完成（${e.count} 张）`) }
+        else if (stage === 'done') { setPipeProgress(100); setPipeMsg('全部生成完成 🎉') }
+        else if (stage === 'error') { setPipeProgress(100); setPipeMsg(`⚠️ ${e.message || '生成失败'}`) }
       }
     } catch { setPipeMsg('⚠️ 生成中断，请重试') }
     load()

@@ -1,8 +1,16 @@
 """元气搭子 AI伴学 — FastAPI 应用入口."""
 import logging
+import mimetypes
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Windows 的 mimetypes 常缺 .js/.mjs 等注册，导致 <script type="module"> 被按 text/plain 返回 → 页面空白
+for _ext, _mime in ((".js", "text/javascript"), (".mjs", "text/javascript"),
+                    (".css", "text/css"), (".json", "application/json"),
+                    (".svg", "image/svg+xml"), (".woff2", "font/woff2"),
+                    (".wasm", "application/wasm"), (".map", "application/json")):
+    mimetypes.add_type(_mime, _ext)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -114,11 +122,11 @@ async def health():
 # 打包版（PyInstaller）把 frontend/dist 作为数据打进 _MEIPASS/dist；开发读 ../frontend/dist
 def _resolve_dist() -> Path | None:
     import sys
-    for cand in (Path(getattr(sys, "_MEIPASS", "")) / "dist",
-                 Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"):
-        if cand.is_dir():
-            return cand
-    return None
+    if getattr(sys, "frozen", False):
+        cand = Path(sys._MEIPASS) / "dist"   # 打包版：内置前端
+    else:
+        cand = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"  # 开发：仓库前端构建产物
+    return cand if cand.is_dir() else None
 
 
 DIST_DIR = _resolve_dist()

@@ -355,7 +355,7 @@ async def stream_chat(
             messages.append({"role": m.role, "content": m.content})
 
     adapter = api_client.get_adapter(settings.default_model)
-    config = AdapterConfig(temperature=0.7, max_tokens=1500)
+    config = AdapterConfig(temperature=0.9, max_tokens=1500)
     collected: list[str] = []
 
     stream_method = getattr(adapter, "stream_chat_completion", None)

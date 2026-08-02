@@ -2,7 +2,34 @@ import axios from 'axios'
 
 const http = axios.create({ baseURL: '/api', timeout: 120000 })
 
+// 社区登录 token（localStorage 持久化，axios 自动带上 Authorization）
+let authToken = localStorage.getItem('yq_token') || ''
+if (authToken) http.defaults.headers.common['Authorization'] = `Bearer ${authToken}`
+export const setAuthToken = (token: string) => {
+  authToken = token || ''
+  if (authToken) {
+    localStorage.setItem('yq_token', authToken)
+    http.defaults.headers.common['Authorization'] = `Bearer ${authToken}`
+  } else {
+    localStorage.removeItem('yq_token')
+    delete http.defaults.headers.common['Authorization']
+  }
+}
+export const getAuthToken = () => authToken
+
 export const api = {
+  // 社区账号
+  register: (username: string, password: string) =>
+    http.post('/auth/register', { username, password }).then(r => r.data),
+  login: (username: string, password: string) =>
+    http.post('/auth/login', { username, password }).then(r => r.data),
+  logout: () => http.post('/auth/logout').then(r => r.data),
+  me: () => http.get('/auth/me').then(r => r.data),
+  // 社区广场
+  getPlaza: () => http.get('/community/plaza').then(r => r.data),
+  publishProject: (id: string) => http.post(`/community/projects/${id}/publish`).then(r => r.data),
+  unpublishProject: (id: string) => http.post(`/community/projects/${id}/unpublish`).then(r => r.data),
+  learnProject: (id: string) => http.post(`/community/plaza/${id}/learn`).then(r => r.data),
   // companion
   getStatus: () => http.get('/companion/status').then(r => r.data),
   getProfile: () => http.get('/companion/profile').then(r => r.data),
@@ -32,9 +59,6 @@ export const api = {
     if (title) fd.append('title', title)
     return http.post('/projects/import', fd).then(r => r.data)
   },
-  getCommunityCatalog: () => http.get('/community/catalog').then(r => r.data),
-  communityImport: (url: string) =>
-    http.post('/community/import', null, { params: { url } }).then(r => r.data),
   /** 语音助手：对话 + 提议章节修改（SSE）。 */
   agentChat: (projectId: string, message: string, history: any[]) =>
     streamSSE(`/api/projects/${projectId}/agent`, { message, history }),

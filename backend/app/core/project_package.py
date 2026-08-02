@@ -115,8 +115,9 @@ def _row(obj) -> dict:
 
 # ---------------------------------------------------------------- 导入
 
-async def import_project(db: AsyncSession, content: bytes, title_override: str | None = None) -> Project:
-    """导入 .yqp 内容，重建项目。返回新项目。"""
+async def import_project(db: AsyncSession, content: bytes, title_override: str | None = None,
+                         owner_id: str = LOCAL_USER) -> Project:
+    """导入 .yqp 内容，重建项目，归属 owner_id。返回新项目。"""
     try:
         z = zipfile.ZipFile(io.BytesIO(content))
     except zipfile.BadZipFile:
@@ -134,7 +135,7 @@ async def import_project(db: AsyncSession, content: bytes, title_override: str |
 
     p_meta = manifest.get("project", {})
     proj = Project(
-        user_id=LOCAL_USER,
+        user_id=owner_id,
         title=(title_override or p_meta.get("title") or "导入项目")[:128],
         description=p_meta.get("description", "") or "",
         icon=p_meta.get("icon", "") or "📦",
@@ -172,7 +173,7 @@ async def import_project(db: AsyncSession, content: bytes, title_override: str |
                 pass
 
         doc = Document(
-            id=new_id, user_id=LOCAL_USER,
+            id=new_id, user_id=owner_id,
             title=dd.get("title") or "", filename=dd.get("filename") or "",
             file_path=file_path, content_type=dd.get("content_type") or "txt",
             chunk_count=0, project_id=proj.id,

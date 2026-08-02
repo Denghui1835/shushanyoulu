@@ -80,6 +80,13 @@ _COLUMN_MIGRATIONS = {
         ("prev_content", "ALTER TABLE podcast_scripts ADD COLUMN prev_content TEXT"),
         ("audio_seconds", "ALTER TABLE podcast_scripts ADD COLUMN audio_seconds INTEGER"),
     ],
+    "users": [
+        ("username", "ALTER TABLE users ADD COLUMN username VARCHAR(64)"),
+        ("password_hash", "ALTER TABLE users ADD COLUMN password_hash VARCHAR(256) DEFAULT ''"),
+    ],
+    "projects": [
+        ("is_public", "ALTER TABLE projects ADD COLUMN is_public BOOLEAN DEFAULT 0"),
+    ],
 }
 
 

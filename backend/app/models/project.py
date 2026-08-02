@@ -21,4 +21,5 @@ class Project(Base):
     title: Mapped[str] = mapped_column(String(128), default="")
     description: Mapped[str] = mapped_column(Text, default="")
     icon: Mapped[str] = mapped_column(String(16), default="📚")
+    is_public: Mapped[bool] = mapped_column(default=False, index=True)  # 作品社区：是否公开到广场
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

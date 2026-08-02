@@ -1,5 +1,5 @@
 """元气搭子 data models."""
-from app.models.user import User
+from app.models.user import User, AuthToken
 from app.models.project import Project
 from app.models.plan import LearningPlan, PlanTask, CheckIn
 from app.models.content import (
@@ -10,7 +10,7 @@ from app.models.cache import APICache, APIQuota, APICallLog
 from app.models.reading import Annotation, DocSummary, PodcastScript
 
 __all__ = [
-    "User", "Project", "LearningPlan", "PlanTask", "CheckIn",
+    "User", "AuthToken", "Project", "LearningPlan", "PlanTask", "CheckIn",
     "Document", "Chunk", "KnowledgePoint", "Question", "QuizRecord", "Flashcard",
     "ChatSession", "ChatMessage", "StudyLog",
     "APICache", "APIQuota", "APICallLog",

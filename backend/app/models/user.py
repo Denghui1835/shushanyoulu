@@ -21,9 +21,21 @@ class User(Base):
     goal_detail: Mapped[str] = mapped_column(Text, default="")   # 目标详情/考试时间等
     daily_minutes: Mapped[int] = mapped_column(Integer, default=30)  # 每天可投入时间(分钟)
     active_plan_id: Mapped[str | None] = mapped_column(String(36), nullable=True)  # 当前生效的学习计划
+    username: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)  # 社区登录名（空=本地模式未注册）
+    password_hash: Mapped[str] = mapped_column(String(256), default="")  # PBKDF2 哈希
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     @property
     def is_onboarded(self) -> bool:
         """Whether the companion has gathered enough info to build a plan."""
         return bool(self.goal.strip())
+
+
+class AuthToken(Base):
+    """社区登录令牌（opaque token，存库可吊销）。"""
+    __tablename__ = "auth_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), index=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

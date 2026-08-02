@@ -151,6 +151,20 @@ async def due_count(db: AsyncSession) -> int:
     now = datetime.now()
     return int((await db.execute(
         select(func.count()).select_from(Flashcard).where(
-            Flashcard.due_at.is_not(None), Flashcard.due_at <= now
+            Flashcard.due_at.is_not(None), Flashcard.due_at <= now,
+            Flashcard.discarded == False,  # noqa: E712
         )
     )).scalar() or 0)
+
+
+# ---------------------------------------------------------------- 闪卡管理（弃用 / 恢复）
+
+async def set_flashcard_discarded(db: AsyncSession, card_id: str, discarded: bool) -> Flashcard:
+    """弃用闪卡（软删除，从列表隐藏，可恢复）。"""
+    card = await db.get(Flashcard, card_id)
+    if not card:
+        raise ValueError("闪卡不存在")
+    card.discarded = discarded
+    await db.commit()
+    await db.refresh(card)
+    return card

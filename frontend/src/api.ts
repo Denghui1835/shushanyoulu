@@ -69,19 +69,32 @@ export const api = {
     http.post(`/knowledge/${docId}/generate`).then(r => r.data),
 
   // questions
-  listQuestions: (docId: string) => http.get(`/questions/${docId}`).then(r => r.data),
+  listQuestions: (docId: string, params?: { include_discarded?: boolean; mistake_book?: boolean }) =>
+    http.get(`/questions/${docId}`, { params }).then(r => r.data),
   generateQuestions: (docId: string, count = 8) =>
     http.post(`/questions/${docId}/generate`, null, { params: { count } }).then(r => r.data),
   gradeQuestion: (qid: string, userAnswer: string) =>
     http.post(`/questions/${qid}/grade`, { user_answer: userAnswer }).then(r => r.data),
+  // 题目管理：弃用/恢复、错题本
+  discardQuestion: (qid: string) => http.post(`/questions/${qid}/discard`).then(r => r.data),
+  restoreQuestion: (qid: string) => http.post(`/questions/${qid}/restore`).then(r => r.data),
+  addToMistakeBook: (qid: string) => http.post(`/questions/${qid}/mistake-book`).then(r => r.data),
+  removeFromMistakeBook: (qid: string) =>
+    http.delete(`/questions/${qid}/mistake-book`).then(r => r.data),
+  getMistakeQuestions: () => http.get('/questions/mistakes').then(r => r.data),
 
   // flashcards
-  listFlashcards: (docId: string) => http.get(`/flashcards/${docId}`).then(r => r.data),
+  listFlashcards: (docId: string, include_discarded = false) =>
+    http.get(`/flashcards/${docId}`, { params: { include_discarded } }).then(r => r.data),
   generateFlashcards: (docId: string, count = 15) =>
     http.post(`/flashcards/${docId}/generate`, null, { params: { count } }).then(r => r.data),
   getDueCards: () => http.get('/flashcards/due').then(r => r.data),
   reviewCard: (cardId: string, rating: number) =>
     http.post(`/flashcards/${cardId}/review`, { rating }).then(r => r.data),
+  // 闪卡管理：弃用/恢复/删除
+  discardFlashcard: (cardId: string) => http.post(`/flashcards/${cardId}/discard`).then(r => r.data),
+  restoreFlashcard: (cardId: string) => http.post(`/flashcards/${cardId}/restore`).then(r => r.data),
+  deleteFlashcard: (cardId: string) => http.delete(`/flashcards/${cardId}`).then(r => r.data),
 
   // pipeline
   runPipeline: (docId: string) => http.post(`/pipeline/${docId}/run`).then(r => r.data),
@@ -119,6 +132,10 @@ export const api = {
     http.post(`/podcast/${docId}/audio`, null, { params: { unit_index: unitIndex } }).then(r => r.data),
   podcastAudioUrl: (docId: string, unitIndex: number) =>
     `/api/podcast/${docId}/audio?unit_index=${unitIndex}`,
+  // 播客库：列表 / 删除
+  listPodcasts: () => http.get('/podcast/list').then(r => r.data),
+  deletePodcast: (docId: string, unitIndex: number) =>
+    http.delete(`/podcast/${docId}`, { params: { unit_index: unitIndex } }).then(r => r.data),
 }
 
 /** 解析 SSE 响应为事件对象序列。 */

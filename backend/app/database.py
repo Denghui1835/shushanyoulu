@@ -48,9 +48,18 @@ async def init_db():
 
 
 def _ensure_columns(conn):
-    """SQLite 轻量迁移：为已有 documents 表补齐书架相关列（create_all 不会改已有表）。"""
-    cols = {row[1] for row in conn.execute(text("PRAGMA table_info(documents)"))}
-    for name, ddl in (
+    """SQLite 轻量迁移：为已有表补齐新增列（create_all 不会改已有表）。"""
+    for table, columns in _COLUMN_MIGRATIONS.items():
+        cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+        for name, ddl in columns:
+            if name not in cols:
+                conn.execute(text(ddl))
+                logger.info("Migrated: added %s.%s", table, name)
+
+
+# 各表的新增列迁移（SQLite ALTER TABLE ADD COLUMN）
+_COLUMN_MIGRATIONS = {
+    "documents": [
         ("project_id", "ALTER TABLE documents ADD COLUMN project_id VARCHAR(36)"),
         ("chapter_title", "ALTER TABLE documents ADD COLUMN chapter_title VARCHAR(256)"),
         ("sort_order", "ALTER TABLE documents ADD COLUMN sort_order INTEGER DEFAULT 0"),
@@ -58,10 +67,15 @@ def _ensure_columns(conn):
         ("page_start", "ALTER TABLE documents ADD COLUMN page_start INTEGER"),
         ("page_end", "ALTER TABLE documents ADD COLUMN page_end INTEGER"),
         ("parent_id", "ALTER TABLE documents ADD COLUMN parent_id VARCHAR(36)"),
-    ):
-        if name not in cols:
-            conn.execute(text(ddl))
-            logger.info("Migrated: added documents.%s", name)
+    ],
+    "questions": [
+        ("discarded", "ALTER TABLE questions ADD COLUMN discarded BOOLEAN DEFAULT 0"),
+        ("in_mistake_book", "ALTER TABLE questions ADD COLUMN in_mistake_book BOOLEAN DEFAULT 0"),
+    ],
+    "flashcards": [
+        ("discarded", "ALTER TABLE flashcards ADD COLUMN discarded BOOLEAN DEFAULT 0"),
+    ],
+}
 
 
 async def ensure_default_project(db: AsyncSession):

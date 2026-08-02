@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Select, Button, Card, Radio, Input, Tag, message, Empty, Space, Alert } from 'antd'
-import { EditOutlined, RightOutlined } from '@ant-design/icons'
+import { Select, Button, Radio, Input, Tag, message, Empty, Space, Alert, Segmented, Popconfirm } from 'antd'
+import { EditOutlined, RightOutlined, DeleteOutlined, UndoOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+
+type Filter = 'all' | 'mistake' | 'discarded'
 
 export default function QuizPage() {
   const [docs, setDocs] = useState<any[]>([])
   const [docId, setDocId] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
   const [questions, setQuestions] = useState<any[]>([])
   const [idx, setIdx] = useState(0)
   const [answer, setAnswer] = useState('')
   const [result, setResult] = useState<any>(null)
+  const [correctCount, setCorrectCount] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [params] = useSearchParams()
 
@@ -22,13 +26,17 @@ export default function QuizPage() {
     else if (d.length) setDocId(d[0].id)
   }
   useEffect(() => { loadDocs() }, [])
-  useEffect(() => { if (docId) load() }, [docId])
 
   const load = async () => {
-    const res = await api.listQuestions(docId)
+    if (!docId) return
+    const opts: any = {}
+    if (filter === 'mistake') opts.mistake_book = true
+    if (filter === 'discarded') opts.include_discarded = true
+    const res = await api.listQuestions(docId, opts)
     setQuestions(res.questions)
-    setIdx(0); setAnswer(''); setResult(null)
+    setIdx(0); setAnswer(''); setResult(null); setCorrectCount(0)
   }
+  useEffect(() => { if (docId) load() }, [docId, filter])
 
   const generate = async () => {
     setGenerating(true)
@@ -43,13 +51,37 @@ export default function QuizPage() {
 
   const submit = async () => {
     if (!answer.trim()) { message.warning('先填写答案'); return }
-    const q = questions[idx]
-    const res = await api.gradeQuestion(q.id, answer)
+    const res = await api.gradeQuestion(questions[idx].id, answer)
     setResult(res)
-    if (res.correct) message.success('回答正确 🎉 元气值 +5')
+    if (res.correct) { setCorrectCount(c => c + 1); message.success('回答正确 🎉') }
+  }
+
+  // ---------- 题目管理 ----------
+  const discard = async (q: any) => {
+    await api.discardQuestion(q.id)
+    message.success('已弃用（可在「已弃用」里恢复）')
+    load()
+  }
+  const restore = async (q: any) => {
+    await api.restoreQuestion(q.id)
+    message.success('已恢复')
+    load()
+  }
+  const toggleMistake = async (q: any) => {
+    if (q.in_mistake_book) await api.removeFromMistakeBook(q.id)
+    else await api.addToMistakeBook(q.id)
+    message.success(q.in_mistake_book ? '已移出错题本' : '已加入错题本')
+    load()
   }
 
   const q = questions[idx]
+  const finished = questions.length > 0 && idx >= questions.length
+
+  const FILTER_OPTS = [
+    { value: 'all', label: `全部 (${questions.length})` },
+    { value: 'mistake', label: '错题本' },
+    { value: 'discarded', label: '已弃用' },
+  ]
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -59,19 +91,50 @@ export default function QuizPage() {
           <b>练习题</b>
           <Select style={{ width: 260 }} placeholder="选择资料" value={docId || undefined}
             onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))} />
-          <Button type="primary" loading={generating} onClick={generate}>
-            {questions.length ? '重新生成题目' : '生成题目'}
-          </Button>
+          {filter === 'all' && (
+            <Button type="primary" loading={generating} onClick={generate}>
+              {questions.length ? '再生成一批' : '生成题目'}
+            </Button>
+          )}
         </Space>
+        <div style={{ marginTop: 10 }}>
+          <Segmented value={filter} onChange={v => setFilter(v as Filter)} options={FILTER_OPTS} />
+        </div>
       </div>
 
-      {!q ? (
-        <div className="page-card"><Empty description="还没有题目，点击「生成题目」开始练习" /></div>
+      {finished ? (
+        <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
+          <h2 style={{ marginTop: 0 }}>本次练习完成 🎉</h2>
+          <p style={{ color: '#666', fontSize: 15 }}>
+            共 <b>{questions.length}</b> 题，答对 <b style={{ color: '#52c41a' }}>{correctCount}</b> 题
+          </p>
+          <p style={{ color: '#999', fontSize: 13 }}>
+            做错的题可点「加入错题本」收录，方便日后集中复习
+          </p>
+          <Space style={{ marginTop: 8 }}>
+            <Button type="primary" icon={<ReloadOutlined />}
+              onClick={() => { setIdx(0); setAnswer(''); setResult(null); setCorrectCount(0) }}>
+              重新练习
+            </Button>
+            <Button onClick={() => setFilter('mistake')}>去错题本</Button>
+          </Space>
+        </div>
+      ) : !q ? (
+        <div className="page-card">
+          <Empty
+            description={
+              filter === 'all' ? '还没有题目，点击「生成题目」开始练习'
+              : filter === 'mistake' ? '错题本是空的，做错的题点「加入错题本」就会出现在这里'
+              : '还没有弃用的题目'
+            }
+          />
+        </div>
       ) : (
         <div className="page-card">
           <Space style={{ marginBottom: 12 }}>
             <Tag color="purple">{idx + 1} / {questions.length}</Tag>
             <Tag>{q.qtype === 'choice' ? '选择题' : q.qtype === 'fill' ? '填空题' : '简答题'}</Tag>
+            {q.in_mistake_book && <Tag color="gold">错题本</Tag>}
           </Space>
           <h3>{q.question}</h3>
 
@@ -93,12 +156,13 @@ export default function QuizPage() {
             />
           )}
 
-          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             {!result ? (
               <Button type="primary" icon={<RightOutlined />} onClick={submit}>提交</Button>
             ) : (
               <>
                 <Alert
+                  style={{ flex: 1 }}
                   type={result.correct ? 'success' : 'error'}
                   showIcon
                   message={result.correct ? '回答正确！' : '再想想，正确答案见解析'}
@@ -110,9 +174,28 @@ export default function QuizPage() {
                   }
                 />
                 <Button type="primary" onClick={() => { setIdx(i => i + 1); setAnswer(''); setResult(null) }}>
-                  下一题
+                  {idx + 1 >= questions.length ? '完成' : '下一题'}
                 </Button>
               </>
+            )}
+          </div>
+
+          {/* 题目管理：弃用 / 错题本 */}
+          <div style={{ marginTop: 14, borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
+            {q.discarded ? (
+              <Button size="small" icon={<UndoOutlined />} onClick={() => restore(q)}>恢复</Button>
+            ) : (
+              <Space size={8}>
+                <Popconfirm title="弃用这道题？它会被隐藏，可在「已弃用」里恢复" onConfirm={() => discard(q)}>
+                  <Button size="small" danger icon={<DeleteOutlined />}>弃用</Button>
+                </Popconfirm>
+                <Button
+                  size="small" type={q.in_mistake_book ? 'primary' : 'default'} icon={<StarOutlined />}
+                  onClick={() => toggleMistake(q)}
+                >
+                  {q.in_mistake_book ? '移出错题本' : '加入错题本'}
+                </Button>
+              </Space>
             )}
           </div>
         </div>

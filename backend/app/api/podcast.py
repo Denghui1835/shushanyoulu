@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -16,6 +16,7 @@ from app.core.podcast import generate_podcast_script
 from app.core.podcast_tts import (
     TTSNotConfiguredError, TTSError, estimate_audio_seconds, script_to_audio,
 )
+from app.core.reading_content import get_reading_units
 from app.models import Document, PodcastScript
 
 logger = logging.getLogger("yuanqi.api.podcast")
@@ -46,6 +47,68 @@ def _serialize(s: PodcastScript) -> dict:
         "audio_seconds": estimate_audio_seconds(s.content),
         "updated_at": s.updated_at.isoformat(),
     }
+
+
+# ---------------------------------------------------------------- 播客库（列表 / 删除）
+
+@router.get("/list")
+async def list_podcasts(db: AsyncSession = Depends(get_db)):
+    """播客库：全部已生成的播客文稿（含文档名、单元标题、音频状态）。
+
+    供「我的播客」页面整理使用：播放/删除/重新生成。
+    """
+    scripts = (await db.execute(
+        select(PodcastScript).order_by(PodcastScript.updated_at.desc())
+    )).scalars().all()
+    if not scripts:
+        return {"count": 0, "podcasts": []}
+
+    doc_ids = {s.document_id for s in scripts}
+    docs = (await db.execute(select(Document).where(Document.id.in_(doc_ids)))).scalars().all()
+    doc_map = {d.id: d for d in docs}
+
+    # 解析每本有播客的文档的单元标题（懒加载，少量文档可接受）
+    unit_titles: dict[tuple[str, int], str] = {}
+    for doc in docs:
+        try:
+            units = await get_reading_units(db, doc)
+            for u in units:
+                unit_titles[(doc.id, u["index"])] = u["title"]
+        except Exception:
+            pass
+
+    items = []
+    for s in scripts:
+        doc = doc_map.get(s.document_id)
+        items.append({
+            "id": s.id, "document_id": s.document_id, "unit_index": s.unit_index,
+            "doc_title": doc.title if doc else "(已删除文档)",
+            "unit_title": unit_titles.get((s.document_id, s.unit_index),
+                                          f"第 {s.unit_index + 1} 单元"),
+            "content": s.content, "status": s.status, "error": s.error,
+            "has_audio": bool(s.audio_path),
+            "audio_seconds": estimate_audio_seconds(s.content),
+            "updated_at": s.updated_at.isoformat(),
+        })
+    return {"count": len(items), "podcasts": items}
+
+
+@router.delete("/{document_id}")
+async def delete_podcast(document_id: str, unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+    """删除某期播客（文稿 + 音频文件）。"""
+    await _get_doc(db, document_id)
+    script = await _get_script(db, document_id, unit_index)
+    if not script:
+        raise HTTPException(status_code=404, detail="播客不存在")
+    audio_path = script.audio_path
+    await db.execute(delete(PodcastScript).where(PodcastScript.id == script.id))
+    await db.commit()
+    if audio_path:
+        try:
+            Path(audio_path).unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("删除播客音频失败: %s", e)
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- 文稿

@@ -57,9 +57,10 @@ async def _generate_batch(db: AsyncSession, doc: Document, chunks: list[str]) ->
 {src[:9000]}
 
 请输出 JSON 数组（不要任何多余文字），每项：
-{{"type": "choice"|"fill"|"essay", "question": "题目", "options": ["选项A","选项B","选项C","选项D"] | [], "answer": "正确答案", "explanation": "解析（引用资料内容）"}}
+{{"type": "choice"|"fill"|"essay", "question": "题目", "options": ["选项A","选项B","选项C","选项D","选项E","选项F"] | [], "answer": "正确答案", "explanation": "解析（引用资料内容）"}}
 要求：
 - 至少包含 2 道选择题，题目和答案必须严格基于资料内容
+- 选择题必须给出恰好 6 个选项（选项A-F），answer 与其中一个选项完全一致
 - 填空题答案不超过 20 字；简答题答案 1-3 句
 - options 仅选择题有，其余为空数组"""
 
@@ -170,3 +171,46 @@ async def quiz_stats(db: AsyncSession, document_id: str | None = None) -> dict:
     total = len(rows)
     correct = sum(1 for r, _ in rows if r.correct)
     return {"total": total, "correct": correct, "accuracy": round(correct / total, 3) if total else 0.0}
+
+
+# ---------------------------------------------------------------- 题目管理（弃用 / 错题本）
+
+async def get_question(db: AsyncSession, question_id: str) -> Question | None:
+    return await db.get(Question, question_id)
+
+
+async def set_question_discarded(db: AsyncSession, question_id: str, discarded: bool) -> Question:
+    """弃用（软删除，从默认列表隐藏）或恢复。"""
+    q = await db.get(Question, question_id)
+    if not q:
+        raise ValueError("题目不存在")
+    q.discarded = discarded
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+async def set_question_mistake(db: AsyncSession, question_id: str, in_book: bool) -> Question:
+    """加入 / 移出错题本。"""
+    q = await db.get(Question, question_id)
+    if not q:
+        raise ValueError("题目不存在")
+    q.in_mistake_book = in_book
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+async def list_questions(db: AsyncSession, document_id: str | None = None,
+                         include_discarded: bool = False,
+                         mistake_book: bool = False) -> list[Question]:
+    """列出题目。默认排除已弃用；mistake_book=True 只列错题本。"""
+    stmt = select(Question)
+    if not include_discarded:
+        stmt = stmt.where(Question.discarded == False)  # noqa: E712
+    if mistake_book:
+        stmt = stmt.where(Question.in_mistake_book == True)  # noqa: E712
+    if document_id:
+        stmt = stmt.where(Question.document_id == document_id)
+    stmt = stmt.order_by(Question.created_at)
+    return (await db.execute(stmt)).scalars().all()

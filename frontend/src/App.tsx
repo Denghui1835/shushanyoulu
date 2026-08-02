@@ -1,6 +1,6 @@
 import { Layout, Menu } from 'antd'
 import {
-  MessageOutlined, CalendarOutlined, ReadOutlined,
+  MessageOutlined, CalendarOutlined, ReadOutlined, SoundOutlined,
 } from '@ant-design/icons'
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -13,6 +13,7 @@ import KnowledgePage from './pages/KnowledgePage'
 import QuizPage from './pages/QuizPage'
 import FlashcardPage from './pages/FlashcardPage'
 import ReadingPage from './pages/ReadingPage'
+import PodcastLibraryPage from './pages/PodcastLibraryPage'
 
 const { Sider, Content } = Layout
 
@@ -34,6 +35,7 @@ export default function App() {
     { key: '/', icon: <MessageOutlined />, label: '伴学首页' },
     { key: '/plan', icon: <CalendarOutlined />, label: '我的计划' },
     { key: '/bookshelf', icon: <ReadOutlined />, label: '我的书架' },
+    { key: '/podcasts', icon: <SoundOutlined />, label: '我的播客' },
   ]
 
   const current = menuItems.find(m => m.key === location.pathname)?.key ?? '/bookshelf'
@@ -72,6 +74,7 @@ export default function App() {
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/flashcards" element={<FlashcardPage />} />
+          <Route path="/podcasts" element={<PodcastLibraryPage />} />
         </Routes>
       </Content>
     </Layout>

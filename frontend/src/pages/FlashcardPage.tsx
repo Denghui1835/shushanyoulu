@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Tag, message, Empty, Space, Select, Progress } from 'antd'
-import { ThunderboltOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Button, Card, Tag, message, Empty, Space, Select, Segmented, Popconfirm } from 'antd'
+import { ThunderboltOutlined, ReloadOutlined, DeleteOutlined, UndoOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+
+type Filter = 'due' | 'all' | 'discarded'
 
 export default function FlashcardPage() {
   const [docs, setDocs] = useState<any[]>([])
   const [docId, setDocId] = useState('')
-  const [mode, setMode] = useState<'due' | 'doc'>('due')
+  const [filter, setFilter] = useState<Filter>('due')
   const [cards, setCards] = useState<any[]>([])
   const [idx, setIdx] = useState(0)
   const [flipped, setFlipped] = useState(false)
-  const [done, setDone] = useState(0)
+  const [reviewed, setReviewed] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [params] = useSearchParams()
 
@@ -24,29 +26,27 @@ export default function FlashcardPage() {
   }
   useEffect(() => { loadDocs() }, [])
 
-  const loadDue = async () => {
-    const res = await api.getDueCards()
+  const load = async () => {
+    let res: any
+    if (filter === 'due') {
+      res = await api.getDueCards()
+    } else {
+      if (!docId) return
+      const withDiscarded = await api.listFlashcards(docId, true)
+      if (filter === 'discarded') res = { flashcards: withDiscarded.flashcards.filter((c: any) => c.discarded) }
+      else res = withDiscarded
+    }
     setCards(res.flashcards)
-    setIdx(0); setDone(0); setFlipped(false)
-    setMode('due')
+    setIdx(0); setFlipped(false); setReviewed(0)
   }
-  useEffect(() => { loadDue() }, [])
-
-  const loadDoc = async () => {
-    if (!docId) return
-    const res = await api.listFlashcards(docId)
-    setCards(res.flashcards)
-    setIdx(0); setDone(0); setFlipped(false)
-    setMode('doc')
-  }
-  useEffect(() => { if (docId) loadDoc() }, [docId])
+  useEffect(() => { load() }, [filter, docId])
 
   const generate = async () => {
     setGenerating(true)
     try {
       const res = await api.generateFlashcards(docId, 15)
       message.success(`闪卡生成完成，共 ${res.count} 张`)
-      loadDoc()
+      load()
     } catch (e: any) {
       message.error(e?.response?.data?.detail || '生成失败')
     } finally { setGenerating(false) }
@@ -55,16 +55,33 @@ export default function FlashcardPage() {
   const review = async (rating: number) => {
     const card = cards[idx]
     await api.reviewCard(card.id, rating)
-    setDone(d => d + 1)
+    setReviewed(r => r + 1)
     if (idx + 1 < cards.length) {
       setIdx(idx + 1)
       setFlipped(false)
     } else {
-      setCards([])
+      setCards([])  // 走完成页
     }
   }
 
+  const discard = async (card: any) => {
+    await api.discardFlashcard(card.id)
+    message.success('已弃用（可在「已弃用」里恢复）')
+    load()
+  }
+  const restore = async (card: any) => {
+    await api.restoreFlashcard(card.id)
+    message.success('已恢复')
+    load()
+  }
+  const del = async (card: any) => {
+    await api.deleteFlashcard(card.id)
+    message.success('已彻底删除')
+    load()
+  }
+
   const card = cards[idx]
+  const finished = !card && reviewed > 0
   const RATINGS = [
     { v: 1, label: '很模糊', color: 'default' },
     { v: 2, label: '有点难', color: 'orange' },
@@ -78,21 +95,61 @@ export default function FlashcardPage() {
         <Space wrap>
           <ThunderboltOutlined style={{ color: '#7c5cfc', fontSize: 18 }} />
           <b>闪卡复习</b>
-          <Select style={{ width: 240 }} placeholder="选择资料" value={docId || undefined}
+          <Select style={{ width: 220 }} placeholder="选择资料" value={docId || undefined}
             onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))} />
-          <Button onClick={generate} loading={generating}>生成闪卡</Button>
-          <Button type="primary" onClick={loadDue}><ReloadOutlined /> 复习到期的</Button>
+          {filter === 'all' && (
+            <Button onClick={generate} loading={generating}>生成闪卡</Button>
+          )}
+          {filter === 'all' && (
+            <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
+          )}
         </Space>
+        <div style={{ marginTop: 10 }}>
+          <Segmented
+            value={filter} onChange={v => setFilter(v as Filter)}
+            options={[
+              { value: 'due', label: '待复习' },
+              { value: 'all', label: `全部 (${filter === 'all' ? cards.length : ''})` },
+              { value: 'discarded', label: '已弃用' },
+            ]}
+          />
+        </div>
       </div>
 
-      {!card ? (
+      {finished ? (
+        <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
+          <h2 style={{ marginTop: 0 }}>
+            {filter === 'due' ? '今天的复习完成啦 🎉' : '本组复习完成 🎉'}
+          </h2>
+          <p style={{ color: '#666', fontSize: 15 }}>
+            本次复习 <b>{reviewed}</b> 张卡片
+          </p>
+          <Space style={{ marginTop: 8 }}>
+            <Button type="primary" icon={<ReloadOutlined />} onClick={load}>再看一遍</Button>
+            {filter !== 'due' && (
+              <Button onClick={() => { setFilter('due'); setCards([]); setReviewed(0) }}>去复习到期的</Button>
+            )}
+          </Space>
+        </div>
+      ) : !card ? (
         <div className="page-card">
           <Empty
-            description={mode === 'due' ? '太棒了！今天该复习的卡片都复习完了 🎉' : '这份资料还没有闪卡，点「生成闪卡」创建'}
+            description={
+              filter === 'due' ? '太棒了！今天该复习的卡片都复习完了 🎉'
+              : filter === 'all' ? '这份资料还没有闪卡，点「生成闪卡」创建'
+              : '还没有弃用的闪卡'
+            }
           />
-          <div style={{ textAlign: 'center' }}>
-            <Button type="primary" onClick={loadDue}>看看待复习</Button>
-          </div>
+          {filter === 'all' && (
+            <div style={{ textAlign: 'center' }}>
+              <Button type="primary" onClick={generate}>生成闪卡</Button>
+            </div>
+          )}
+          {filter === 'due' && (
+            <div style={{ textAlign: 'center' }}>
+              <Button type="primary" onClick={() => setFilter('all')}>看看全部卡片</Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="page-card">
@@ -128,6 +185,22 @@ export default function FlashcardPage() {
               </div>
             </div>
           )}
+
+          {/* 管理：弃用 / 恢复 / 删除 */}
+          <div style={{ marginTop: 14, borderTop: '1px solid #f0f0f0', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+            {filter === 'discarded' ? (
+              <Space size={8}>
+                <Button size="small" icon={<UndoOutlined />} onClick={() => restore(card)}>恢复</Button>
+                <Popconfirm title="彻底删除这张闪卡？不可恢复" onConfirm={() => del(card)}>
+                  <Button size="small" danger icon={<DeleteOutlined />}>彻底删除</Button>
+                </Popconfirm>
+              </Space>
+            ) : (
+              <Popconfirm title="弃用这张闪卡？它会被隐藏，可在「已弃用」里恢复" onConfirm={() => discard(card)}>
+                <Button size="small" danger icon={<DeleteOutlined />}>弃用</Button>
+              </Popconfirm>
+            )}
+          </div>
         </div>
       )}
     </div>

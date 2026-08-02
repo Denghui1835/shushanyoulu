@@ -1,0 +1,356 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #f5f7fa;
+  color: #2b2b2b;
+}
+
+.yq-layout { min-height: 100vh; }
+.yq-sider {
+  background: linear-gradient(180deg, #6c5ce7 0%, #7c5cfc 60%, #a29bfe 100%) !important;
+}
+.yq-logo {
+  padding: 22px 20px 16px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.yq-logo .logo-icon {
+  width: 40px; height: 40px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.yq-logo .logo-text { font-size: 18px; font-weight: 700; }
+.yq-logo .logo-sub { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+
+.yq-menu {
+  background: transparent !important;
+  border-inline-end: none !important;
+}
+.yq-menu .ant-menu-item {
+  color: rgba(255,255,255,0.85) !important;
+  border-radius: 10px !important;
+  margin: 4px 10px !important;
+}
+.yq-menu .ant-menu-item-selected {
+  background: rgba(255,255,255,0.22) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+.yq-menu .ant-menu-item:hover {
+  background: rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+}
+
+.yq-content {
+  padding: 24px;
+  overflow-y: auto;
+  height: calc(100vh - 0px);
+}
+
+/* companion chat */
+.yq-chat {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 48px);
+  max-width: 900px; margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(124,92,252,0.08);
+  overflow: hidden;
+}
+.yq-chat-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex; align-items: center; gap: 10px;
+  background: #fff;
+}
+.yq-chat-body {
+  flex: 1; overflow-y: auto;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.yq-msg {
+  display: flex; gap: 10px;
+  animation: fadeIn 0.3s ease;
+}
+.yq-msg.user { flex-direction: row-reverse; }
+.yq-msg .avatar {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.yq-msg.user .avatar { background: #7c5cfc; }
+.yq-msg.assistant .avatar { background: #f0edff; }
+.yq-msg .bubble {
+  max-width: 78%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  line-height: 1.7;
+  font-size: 14px;
+  word-break: break-word;
+}
+.yq-msg.user .bubble {
+  background: #7c5cfc; color: #fff;
+  border-top-right-radius: 4px;
+}
+.yq-msg.assistant .bubble {
+  background: #f7f7fb; color: #333;
+  border-top-left-radius: 4px;
+}
+.yq-chat-input {
+  padding: 14px 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex; gap: 10px;
+  background: #fff;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+
+/* status cards */
+.yq-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.yq-stat-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.yq-stat-card .num { font-size: 26px; font-weight: 700; color: #7c5cfc; }
+.yq-stat-card .label { color: #999; font-size: 13px; margin-top: 4px; }
+
+/* markdown in chat */
+.yq-md p { margin: 6px 0; }
+.yq-md code {
+  background: rgba(124,92,252,0.08);
+  padding: 2px 6px; border-radius: 4px;
+  font-size: 13px;
+}
+.yq-md pre {
+  background: #1e1e2e; color: #cdd6f4;
+  padding: 12px; border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.yq-md ul, .yq-md ol { padding-left: 20px; margin: 6px 0; }
+
+.page-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  margin-bottom: 16px;
+}
+
+/* 阅读页：批注跳转高亮 */
+.reading-hl {
+  background: #fff3bf;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+/* 朗读当前句高亮（读原文时） */
+.reading-hl.speaking {
+  background: #cfe8ff;
+  box-shadow: 0 0 0 2px #cfe8ff;
+  border-radius: 3px;
+}
+
+/* 批注列表项 */
+.ann-item {
+  padding: 10px;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  transition: box-shadow 0.2s;
+}
+.ann-item:hover {
+  box-shadow: 0 2px 10px rgba(124,92,252,0.12);
+}
+
+/* PDF 全页浏览：顶部栏去掉卡片感、阅读区铺满 */
+.yq-topbar-full {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 4px;
+  margin-bottom: 12px;
+}
+.yq-reading-full {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 150px);
+  background: #f5f5f7;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* 原生文件阅读视图（对标 WPS） */
+.yq-native-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 14px;
+}
+.yq-native-body {
+  overflow-y: auto;
+  max-height: calc(100vh - 260px);
+}
+/* 全页模式：NativeFileView 铺满父容器，主体滚动占满剩余高度 */
+.yq-native-full {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.yq-native-full .yq-native-toolbar {
+  padding: 10px 14px;
+  margin-bottom: 0;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+.yq-native-full .yq-native-body {
+  flex: 1;
+  max-height: none;
+  overflow: auto;
+  padding: 16px;
+}
+.yq-native-pdf {
+  display: flex;
+  justify-content: center;
+  background: #f5f5f7;
+  border-radius: 10px;
+  padding: 16px;
+}
+.yq-native-full .yq-native-pdf {
+  background: transparent;
+  border-radius: 0;
+  padding: 8px;
+  min-height: 100%;
+}
+.yq-native-pdf .react-pdf__Document {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+.yq-native-pdf canvas {
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  background: #fff;
+}
+.yq-native-full .yq-native-pdf canvas {
+  box-shadow: 0 3px 18px rgba(0, 0, 0, 0.18);
+}
+.yq-native-docx {
+  line-height: 1.8;
+  font-size: 15px;
+}
+.yq-native-docx h1, .yq-native-docx h2, .yq-native-docx h3 { margin: 14px 0 8px; }
+.yq-native-docx img { max-width: 100%; }
+.yq-native-md {
+  line-height: 1.8;
+  font-size: 15px;
+}
+.yq-native-text {
+  white-space: pre-wrap;
+  line-height: 1.9;
+  font-size: 14.5px;
+  font-family: inherit;
+  margin: 0;
+}
+
+/* 章节分页调节器行 */
+.yq-reg-row {
+  background: #faf9ff;
+  border: 1px solid #f0edff;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.yq-reg-row:hover {
+  border-color: #d9ccff;
+}
+
+/* 百宝箱（阅读页右下角可折叠悬浮面板） */
+.yq-baibao {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 90;
+}
+.yq-baibao-fab {
+  width: 52px !important;
+  height: 52px !important;
+  font-size: 22px !important;
+  box-shadow: 0 6px 20px rgba(124, 92, 252, 0.35);
+}
+.yq-baibao-panel {
+  width: 280px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #ece6ff;
+  box-shadow: 0 10px 34px rgba(124, 92, 252, 0.2);
+  padding: 14px;
+}
+.yq-baibao-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.yq-baibao-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.yq-baibao-entries .ant-btn {
+  text-align: left;
+  justify-content: flex-start;
+}
+
+/* 朗读控制条（悬浮底部） */
+.tts-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 18px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #ece6ff;
+  border-radius: 30px;
+  padding: 8px 16px;
+  box-shadow: 0 6px 24px rgba(124,92,252,0.18);
+  width: min(720px, calc(100vw - 260px));
+}
+@media (max-width: 900px) {
+  .tts-bar { width: calc(100vw - 32px); }
+}
+
+/* 标题层级占位框（占位用，无交互）：H1/H2/H3 按 字号 + 边框粗细 双维度单调区分 */
+.title-box-h1,.title-box-h2,.title-box-h3{
+  display: block;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: #5b4b9e;
+  background: #faf9ff;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.title-box-h1{ font-size: 20px; font-weight: 700; border: 3px solid #7c5cfc; }
+.title-box-h2{ font-size: 16px; font-weight: 600; border: 2px solid #b8a8f0; }
+.title-box-h3{ font-size: 14px; font-weight: 400; border: 1px solid #d9ccff; }

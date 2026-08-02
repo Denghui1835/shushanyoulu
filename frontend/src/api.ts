@@ -136,9 +136,12 @@ export const api = {
   listPodcasts: () => http.get('/podcast/list').then(r => r.data),
   deletePodcast: (docId: string, unitIndex: number) =>
     http.delete(`/podcast/${docId}`, { params: { unit_index: unitIndex } }).then(r => r.data),
-  // 文稿修改：打字/语音输入修改要求
+  // 文稿修改：打字/语音输入修改要求（AI 辅助）
   editPodcastScript: (docId: string, unitIndex: number, instruction: string) =>
     http.post(`/podcast/${docId}/edit-script`, { instruction }, { params: { unit_index: unitIndex } }).then(r => r.data),
+  // 文稿手动保存（直接编辑，不经 AI）
+  savePodcastScript: (docId: string, unitIndex: number, content: string) =>
+    http.put(`/podcast/${docId}/script`, { content }, { params: { unit_index: unitIndex } }).then(r => r.data),
 }
 
 /** 解析 SSE 响应为事件对象序列。 */

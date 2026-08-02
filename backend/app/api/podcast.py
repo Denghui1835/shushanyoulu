@@ -13,7 +13,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.core.podcast import generate_podcast_script, edit_podcast_script
+from app.core.podcast import generate_podcast_script, edit_podcast_script, update_podcast_script
 from app.core.podcast_tts import (
     TTSNotConfiguredError, TTSError, estimate_audio_seconds, script_to_audio,
 )
@@ -116,6 +116,28 @@ async def delete_podcast(document_id: str, unit_index: int = 0, db: AsyncSession
 
 class EditScriptIn(BaseModel):
     instruction: str
+
+
+class UpdateScriptIn(BaseModel):
+    content: str
+
+
+@router.put("/{document_id}/script")
+async def save_script(document_id: str, data: UpdateScriptIn,
+                      unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+    """手动直接保存文稿内容（不经 AI）。改后旧音频作废，需重新合成。"""
+    content = (data.content or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="文稿不能为空")
+    doc = await _get_doc(db, document_id)
+    try:
+        script = await update_podcast_script(db, doc, unit_index, content)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("播客文稿保存失败 doc=%s unit=%s", document_id, unit_index)
+        raise HTTPException(status_code=500, detail=f"文稿保存失败：{str(e)[:200]}")
+    return _serialize(script)
 
 
 @router.post("/{document_id}/edit-script")

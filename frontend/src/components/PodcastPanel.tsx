@@ -4,7 +4,7 @@ import {
 } from 'antd'
 import {
   AudioOutlined, AudioMutedOutlined, ThunderboltOutlined, ReloadOutlined,
-  DownloadOutlined, SoundOutlined, EditFilled,
+  DownloadOutlined, SoundOutlined, EditFilled, EditOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 
@@ -33,11 +33,15 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
   const [genAudio, setGenAudio] = useState(false)   // 音频合成中
   const [audioUrl, setAudioUrl] = useState('')
   const [audioErr, setAudioErr] = useState('')
-  // 文稿修改（打字/语音）
+  // 文稿修改（AI 辅助：打字/语音）
   const [editInstr, setEditInstr] = useState('')
   const [editing, setEditing] = useState(false)
   const [recording, setRecording] = useState(false)
   const recRef = useRef<any>(null)
+  // 文稿手动编辑（直接改文本，不经 AI）
+  const [manualEdit, setManualEdit] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => () => { try { recRef.current?.abort?.() } catch { /* ignore */ } }, [])
 
@@ -60,6 +64,8 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
       const s = await api.generatePodcastScript(docId, unitIndex)
       setScript(s)
       setAudioUrl('')  // 文稿变了，旧音频作废
+      setManualEdit(false)
+      setDraft('')
     } catch (e: any) {
       setScript(prev => prev ? { ...prev, status: 'error', error: e?.response?.data?.detail || '生成失败' } : prev)
     } finally { setLoading(false) }
@@ -110,10 +116,33 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
       setScript(s)
       setAudioUrl('')  // 文稿改了，旧音频作废，需重新合成
       setEditInstr('')
+      setManualEdit(false)
+      setDraft('')
       message.success('文稿已按你的要求修改')
     } catch (e: any) {
       message.error(e?.response?.data?.detail || '修改失败')
     } finally { setEditing(false) }
+  }
+
+  // ---------- 手动编辑 ----------
+  const openManualEdit = () => {
+    setDraft(script?.content || '')
+    setManualEdit(true)
+  }
+  const cancelManual = () => { setManualEdit(false); setDraft('') }
+  const saveManual = async () => {
+    if (!draft.trim()) { message.warning('文稿不能为空'); return }
+    setSaving(true)
+    try {
+      const s = await api.savePodcastScript(docId, unitIndex, draft)
+      setScript(s)
+      setAudioUrl('')  // 文稿改了，旧音频作废，需重新合成
+      setManualEdit(false)
+      setDraft('')
+      message.success('文稿已保存')
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '保存失败')
+    } finally { setSaving(false) }
   }
 
   return (
@@ -149,18 +178,33 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
 
           {script.status === 'done' && (
             <>
-              {/* 文稿预览 */}
-              <div style={{ fontSize: 13.5, lineHeight: 1.8, whiteSpace: 'pre-wrap',
-                background: '#f7f7fb', borderRadius: 8, padding: 10, maxHeight: 260, overflowY: 'auto' }}>
-                {script.content}
-              </div>
-              <Space wrap size={8}>
-                <Button size="small" icon={<ReloadOutlined />} onClick={generate}>重新生成文稿</Button>
-                <Button size="small" type="primary" icon={<AudioOutlined />} loading={genAudio} onClick={genAudioClick}>
-                  {script.has_audio ? '重新合成音频' : '合成音频'}
-                </Button>
-                <span style={{ fontSize: 12, color: '#999' }}>约 {minutes} 分钟</span>
-              </Space>
+              {/* 文稿预览 / 手动编辑 */}
+              {manualEdit ? (
+                <>
+                  <Input.TextArea rows={9} value={draft} onChange={e => setDraft(e.target.value)}
+                    style={{ fontSize: 13.5, lineHeight: 1.8 }} autoFocus />
+                  <Space wrap size={8} style={{ marginTop: 8 }}>
+                    <Button size="small" type="primary" loading={saving} onClick={saveManual}>保存文稿</Button>
+                    <Button size="small" onClick={cancelManual}>取消</Button>
+                    <span style={{ fontSize: 12, color: '#999' }}>每行以「主播A：」或「主播B：」开头</span>
+                  </Space>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.8, whiteSpace: 'pre-wrap',
+                    background: '#f7f7fb', borderRadius: 8, padding: 10, maxHeight: 260, overflowY: 'auto' }}>
+                    {script.content}
+                  </div>
+                  <Space wrap size={8}>
+                    <Button size="small" icon={<EditOutlined />} onClick={openManualEdit}>编辑文稿</Button>
+                    <Button size="small" icon={<ReloadOutlined />} onClick={generate}>重新生成文稿</Button>
+                    <Button size="small" type="primary" icon={<AudioOutlined />} loading={genAudio} onClick={genAudioClick}>
+                      {script.has_audio ? '重新合成音频' : '合成音频'}
+                    </Button>
+                    <span style={{ fontSize: 12, color: '#999' }}>约 {minutes} 分钟</span>
+                  </Space>
+                </>
+              )}
 
               {audioErr && <Alert type="warning" showIcon message={audioErr} style={{ marginTop: 4 }} />}
 
@@ -174,12 +218,13 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
                 </div>
               )}
 
-              {/* 修改文稿：打字 / 语音 */}
+              {/* 修改文稿：打字 / 语音（AI 辅助；手动编辑时不显示） */}
+              {!manualEdit && (
               <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 10, marginTop: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                   <EditFilled style={{ color: '#7c5cfc' }} />
-                  <b style={{ fontSize: 13 }}>修改文稿</b>
-                  <span style={{ fontSize: 12, color: '#999' }}>打字或语音告诉 AI 怎么改，改后需重新合成音频</span>
+                  <b style={{ fontSize: 13 }}>AI 修改文稿</b>
+                  <span style={{ fontSize: 12, color: '#999' }}>打字或语音告诉 AI 怎么改；也可点「编辑文稿」手动改</span>
                 </div>
                 <Space.Compact style={{ width: '100%' }}>
                   <Tooltip title={recording ? '停止录音' : '语音输入'}>
@@ -200,6 +245,7 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
                   <Button type="primary" icon={<EditFilled />} loading={editing} onClick={applyEdit}>修改</Button>
                 </Space.Compact>
               </div>
+              )}
             </>
           )}
         </>

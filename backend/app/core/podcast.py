@@ -126,6 +126,31 @@ async def generate_podcast_script(db: AsyncSession, document: Document, unit_ind
     return script
 
 
+async def update_podcast_script(db: AsyncSession, document: Document, unit_index: int,
+                                content: str) -> PodcastScript:
+    """手动直接保存文稿内容（不经 AI）：校验双人对谈格式，改动后清空旧音频。"""
+    script = (await db.execute(select(PodcastScript).where(
+        PodcastScript.document_id == document.id, PodcastScript.unit_index == unit_index
+    ))).scalars().first()
+    if not script or script.status != "done" or not script.content:
+        raise ValueError("请先生成播客文稿，再编辑")
+
+    content = content.strip()
+    if not content:
+        raise ValueError("文稿不能为空")
+    if not _is_valid_script(content):
+        raise ValueError("文稿不是有效的双人对谈格式（每行需以「主播A：」或「主播B：」开头）")
+
+    script.content = content
+    script.status = "done"
+    await _delete_audio(script)
+    script.audio_path = None
+    await db.commit()
+    await db.refresh(script)
+    logger.info("播客文稿已手动保存: doc=%s unit=%s (%d 字)", document.id, unit_index, len(content))
+    return script
+
+
 async def _delete_audio(script: PodcastScript) -> None:
     """删除文稿关联的音频文件（如有）。"""
     if script.audio_path:

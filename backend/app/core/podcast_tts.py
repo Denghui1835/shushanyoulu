@@ -2,15 +2,17 @@
 
 provider（backend/.env TTS_PROVIDER）：
 - edge（默认，免费免 Key）：开源 edge-tts 包（github.com/rany2/edge-tts），
-  走微软 Edge 在线神经语音，音质与 Azure 同源、情感自然；用双音色 SSML 单次合成，
-  两位主播交替发声、句间带自然停顿，接近豆包 AI 播客的对谈感。
+  走微软 Edge 在线神经语音。注意：edge-tts 不支持 SSML（实测会当正文朗读），
+  因此这里逐句（turn）用「纯文本 + 对应音色 + 语速/音调」合成后字节拼接，
+  保证两位主播音色不同、且绝不读出「主播A：」等标签或乱码。
 - volc（火山引擎/豆包 TTS，付费可选）：逐句按说话人调用对应音色后字节拼接。
 - azure（Azure 认知服务 TTS，付费可选）：逐句按说话人调用对应音色后字节拼接。
 - mock：不联网，生成与文稿长度对应的无声 WAV（纯链路测试/无网时体验 UI 用）。
 
-拼接依赖同源编码一致（浏览器一般可顺序播放）；如需更精细的静音间隔/淡入淡出，
-可后续引入 ffmpeg/pydub 重新合成。
+拼接依赖同源编码一致（edge-tts 输出无 ID3 头、帧同步开头，可直接拼接）；
+如需更精细的静音间隔/淡入淡出，可后续引入 ffmpeg/pydub 重新合成。
 """
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -75,32 +77,56 @@ def _voice_for(provider: str, speaker: str) -> str:
     return settings.edge_tts_voice_a if speaker == _SPEAKER_A else settings.edge_tts_voice_b
 
 
-# ---------------------------------------------------------------- edge（免费，SSML 双音色单次合成）
+# ---------------------------------------------------------------- edge（免费，逐句纯文本合成）
 
-def _edge_ssml(turns: list[dict]) -> str:
-    """把说话轮次拼成双音色 SSML：两位主播交替、句间带停顿，一次请求完成整期对谈。"""
-    import xml.sax.saxutils as sax
-    parts = ["<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='zh-CN'>"]
-    for i, t in enumerate(turns):
-        if i > 0:
-            parts.append("<break time='220ms'/>")
-        voice = _voice_for("edge", t["speaker"])
-        parts.append(f"<voice name='{voice}'>{sax.escape(t['text'])}</voice>")
-    parts.append("</speak>")
-    return "".join(parts)
+# 两位主播的语速/音调：让对谈更有情感与区分度（女主播更轻快上扬、男主播沉稳稍低）
+_EDGE_TURN_STYLE = {
+    "主播A": {"rate": "+10%", "pitch": "+3Hz"},
+    "主播B": {"rate": "+6%", "pitch": "-2Hz"},
+}
+# 句间停顿：不同说话人之间在句尾追加省略号，让换人更自然
+_EDGE_TURN_PAUSE = "……"
+# 连续请求间隔（秒）：edge-tts 快速连续请求会被微软限流，需给服务喘息
+_EDGE_REQUEST_INTERVAL = 0.25
+# 单句合成失败重试次数与退避
+_EDGE_RETRIES = 4
 
 
-async def _edge_synthesize(ssml: str) -> bytes:
+def merge_speaker_segments(turns: list[dict]) -> list[dict]:
+    """合并连续同一说话人的轮次：减少 TTS 调用次数（降低限流风险），
+    且同一人连续表达时更连贯（不插入人工停顿）。"""
+    merged: list[dict] = []
+    for t in turns:
+        if merged and merged[-1]["speaker"] == t["speaker"]:
+            merged[-1]["text"] += t["text"]
+        else:
+            merged.append({"speaker": t["speaker"], "text": t["text"]})
+    return merged
+
+
+async def _edge_synthesize(text: str, voice: str, rate: str = "+0%", pitch: str = "+0Hz") -> bytes:
+    """edge-tts 合成一段（纯文本，不含任何 SSML/标签），返回 mp3 字节。
+
+    带失败重试：微软服务偶发限流（NoAudioReceived），重试退避后可恢复。
+    """
     import edge_tts
 
-    communicate = edge_tts.Communicate(ssml, voice=settings.edge_tts_voice_a)  # SSML 内已指定音色
-    audio = bytearray()
-    async for chunk in communicate.stream():
-        if chunk.get("type") == "audio":
-            audio.extend(chunk["data"])
-    if not audio:
-        raise TTSError("edge-tts 返回为空")
-    return bytes(audio)
+    last_err: Exception | None = None
+    for attempt in range(_EDGE_RETRIES):
+        try:
+            communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+            audio = bytearray()
+            async for chunk in communicate.stream():
+                if chunk.get("type") == "audio":
+                    audio.extend(chunk["data"])
+            if not audio:
+                raise TTSError("edge-tts 返回为空")
+            return bytes(audio)
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            if attempt < _EDGE_RETRIES - 1:
+                await asyncio.sleep(1.5 + attempt * 1.5)
+    raise TTSError(f"edge-tts 合成失败：{last_err}")
 
 
 # ---------------------------------------------------------------- volc / azure / mock（逐句）
@@ -198,8 +224,8 @@ def _mock_synthesize(text: str) -> bytes:
 async def script_to_audio(db: AsyncSession, script: PodcastScript) -> PodcastScript:
     """把文稿合成音频存盘并回填 audio_path。
 
-    edge：SSML 双音色单次合成（对话自然、无拼接爆音）；
-    volc/azure/mock：逐句按说话人调用对应音色后字节拼接。
+    统一走「逐句合成 + 字节拼接」：每句用对应说话人的音色（edge 再加语速/音调），
+    保证两位主播音色不同、句间带自然停顿，绝不读出标签/乱码。
     provider 未配置/未安装抛 TTSNotConfiguredError；单句合成失败抛 TTSError（由 API 转 500）。
     """
     turns = parse_turns(script.content)
@@ -211,30 +237,37 @@ async def script_to_audio(db: AsyncSession, script: PodcastScript) -> PodcastScr
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{script.document_id[:8]}_u{script.unit_index}.mp3"
 
-    if provider == "edge":
-        # 一次请求合成整期对谈（双音色 + 句间停顿）
-        ssml = _edge_ssml(turns)
-        audio = await _edge_synthesize(ssml)
-        logger.info("edge-tts 合成整期播客: %s (%d 轮, %d KB)",
-                    out_path.name, len(turns), len(audio) // 1024)
-        out_path.write_bytes(audio)
-    else:
-        parts: list[bytes] = []
-        for i, turn in enumerate(turns):
-            if not turn["text"]:
-                continue
-            voice = _voice_for(provider, turn["speaker"])
-            part = await _synthesize(provider, turn["text"], voice)
-            if not part:
-                logger.warning("TTS 第 %d 轮返回空，跳过", i)
-                continue
-            parts.append(part)
-            if i % 5 == 0 or i == len(turns) - 1:
-                logger.info("TTS 进度 %d/%d (%s)", i + 1, len(turns), turn["speaker"])
-        if not parts:
-            raise TTSError("TTS 未产出任何音频")
-        out_path.write_bytes(b"".join(parts))
-        logger.info("播客音频已生成: %s (%d 轮, %d KB)", out_path.name, len(turns), out_path.stat().st_size // 1024)
+    # 合并连续同一说话人，减少调用次数（降低限流风险）
+    segments = merge_speaker_segments(turns)
+    parts: list[bytes] = []
+    total = len(segments)
+    for i, seg in enumerate(segments):
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        # 不同说话人之间追加省略号停顿，让换人更自然（segments 已合并，相邻必为不同人）
+        if i < total - 1:
+            text = text.rstrip("。！？!?") + "。" + _EDGE_TURN_PAUSE
+        voice = _voice_for(provider, seg["speaker"])
+        if provider == "edge":
+            style = _EDGE_TURN_STYLE.get(seg["speaker"], {})
+            part = await _edge_synthesize(text, voice,
+                                          style.get("rate", "+0%"), style.get("pitch", "+0Hz"))
+            if i < total - 1:
+                await asyncio.sleep(_EDGE_REQUEST_INTERVAL)  # 给 edge 服务喘息，防限流
+        else:
+            part = await _synthesize(provider, text, voice)
+        if not part:
+            logger.warning("TTS 第 %d 段返回空，跳过", i)
+            continue
+        parts.append(part)
+        if i % 5 == 0 or i == total - 1:
+            logger.info("TTS 进度 %d/%d (%s)", i + 1, total, seg["speaker"])
+
+    if not parts:
+        raise TTSError("TTS 未产出任何音频")
+    out_path.write_bytes(b"".join(parts))
+    logger.info("播客音频已生成: %s (%d 段, %d KB)", out_path.name, total, out_path.stat().st_size // 1024)
 
     script.audio_path = str(out_path)
     script.status = "done"

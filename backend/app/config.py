@@ -5,6 +5,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# 数据目录：打包版通过环境变量 YQ_DATA_DIR 指向 exe 旁的 data/；开发默认 backend/data
+DATA_DIR = Path(os.environ.get("YQ_DATA_DIR") or (BASE_DIR / "data"))
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -13,8 +16,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = True
 
-    # Database — SQLite local-first (MVP)
-    database_url: str = "sqlite+aiosqlite:///./data/app.db"
+    # Database — SQLite local-first (MVP)；打包版走 YQ_DATA_DIR
+    database_url: str = f"sqlite+aiosqlite:///{(DATA_DIR / 'app.db').as_posix()}"
 
     # LLM
     default_model: str = "deepseek-chat"
@@ -27,7 +30,7 @@ class Settings(BaseSettings):
     daily_token_limit: int = 1_000_000
 
     # File Storage
-    document_dir: str = str(BASE_DIR / "data" / "documents")
+    document_dir: str = str(DATA_DIR / "documents")
     max_upload_size_mb: int = 100
     chunk_size_tokens: int = 1500  # target tokens per chunk
 
@@ -49,7 +52,7 @@ class Settings(BaseSettings):
     azure_tts_region: str = "eastasia"
     azure_tts_voice_a: str = "zh-CN-XiaoxiaoNeural"
     azure_tts_voice_b: str = "zh-CN-YunxiNeural"
-    podcast_audio_dir: str = str(BASE_DIR / "data" / "podcast_audio")
+    podcast_audio_dir: str = str(DATA_DIR / "podcast_audio")
 
     # 作品社区：社区目录 JSON 的 URL（网盘/GitHub raw 直链），空则不启用社区列表
     community_catalog_url: str = ""

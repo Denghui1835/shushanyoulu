@@ -5,8 +5,9 @@ __pycache__/
 dist/
 build/
 .eggs/
-.venv/
+.venv*/
 venv/
+*.spec
 .pytest_cache/
 
 # Node / Frontend

@@ -4,10 +4,12 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.config import settings
+from app.config import settings, DATA_DIR
 from app.database import init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -17,15 +19,15 @@ logger = logging.getLogger("yuanqi")
 async def startup_init():
     await init_db()
 
-    # Load .env file for API config (project .env takes priority over shell env)
+    # Load .env file for API config（打包版从数据目录读，开发读 backend/.env）
     env_vals = {}
-    env_path = Path(__file__).resolve().parent.parent / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                env_vals[k.strip()] = v.strip().strip('"').strip("'")
+    for env_path in (DATA_DIR / ".env", Path(__file__).resolve().parent.parent / ".env"):
+        if env_path.exists():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _, v = line.partition("=")
+                    env_vals[k.strip()] = v.strip().strip('"').strip("'")
 
     # 项目 .env 的 DeepSeek Key 优先；其次 shell 环境的 DEEPSEEK；最后才是 ANTHROPIC
     # （注意：宿主 shell 可能带有 Claude Code 的 ANTHROPIC_AUTH_TOKEN，不能让它顶掉项目的 DeepSeek 配置）
@@ -98,12 +100,43 @@ app.include_router(auth_router)
 
 @app.get("/")
 async def root():
+    if DIST_DIR and (DIST_DIR / "index.html").exists():
+        return FileResponse(DIST_DIR / "index.html")
     return {"name": "元气搭子 AI伴学", "version": settings.app_version, "status": "running", "docs": "/docs"}
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------- 前端静态托管（打包版/生产）
+# 打包版（PyInstaller）把 frontend/dist 作为数据打进 _MEIPASS/dist；开发读 ../frontend/dist
+def _resolve_dist() -> Path | None:
+    import sys
+    for cand in (Path(getattr(sys, "_MEIPASS", "")) / "dist",
+                 Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"):
+        if cand.is_dir():
+            return cand
+    return None
+
+
+DIST_DIR = _resolve_dist()
+
+if DIST_DIR:
+    if (DIST_DIR / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa(path: str):
+        """SPA 兜底：非 /api 的路径都返回前端 index.html（React Router 深链）。"""
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        if path:
+            f = DIST_DIR / path
+            if f.is_file():
+                return FileResponse(f)
+        return FileResponse(DIST_DIR / "index.html")
 
 
 if __name__ == "__main__":

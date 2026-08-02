@@ -1,4 +1,4 @@
-"""阅读功能模型：批注(Annotation) 与 总结(DocSummary)."""
+"""阅读功能模型：批注(Annotation)、总结(DocSummary)、AI 播客文稿(PodcastScript)."""
 import uuid
 from datetime import datetime
 
@@ -48,6 +48,25 @@ class DocSummary(Base):
     scope: Mapped[str] = mapped_column(String(16), default="overall")  # overall / page / story / concept
     unit_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     content: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="generating")  # generating / done / error
+    error: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class PodcastScript(Base):
+    """一期「AI 播客」文稿：基于单个阅读单元（章节/页）生成的双人主播对谈。
+
+    unit_index 对应阅读单元序号（见 reading_content.get_reading_units）。
+    content 为双人对谈文稿（每行「主播A：…/主播B：…」），audio_path 指向合成后的 mp3。
+    status: generating / done / error；生成文稿时会先删旧记录重建（幂等），旧音频一并清理。
+    """
+    __tablename__ = "podcast_scripts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    document_id: Mapped[str] = mapped_column(String(36), ForeignKey("documents.id"), index=True)
+    unit_index: Mapped[int] = mapped_column(Integer, default=0)
+    content: Mapped[str] = mapped_column(Text, default="")
+    audio_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="generating")  # generating / done / error
     error: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)

@@ -109,6 +109,16 @@ export const api = {
     http.get(`/reading/${docId}/summaries`).then(r => r.data),
   generateSummary: (docId: string, scope: string, unitIndex?: number) =>
     http.post(`/reading/${docId}/summarize`, { scope, unit_index: unitIndex }).then(r => r.data),
+
+  // AI 播客（每阅读单元独立一条）：文稿生成/查询、音频生成/试听
+  getPodcastScript: (docId: string, unitIndex: number) =>
+    http.get(`/podcast/${docId}/script`, { params: { unit_index: unitIndex } }).then(r => r.data),
+  generatePodcastScript: (docId: string, unitIndex: number) =>
+    http.post(`/podcast/${docId}/script`, null, { params: { unit_index: unitIndex } }).then(r => r.data),
+  generatePodcastAudio: (docId: string, unitIndex: number) =>
+    http.post(`/podcast/${docId}/audio`, null, { params: { unit_index: unitIndex } }).then(r => r.data),
+  podcastAudioUrl: (docId: string, unitIndex: number) =>
+    `/api/podcast/${docId}/audio?unit_index=${unitIndex}`,
 }
 
 /** 解析 SSE 响应为事件对象序列。 */

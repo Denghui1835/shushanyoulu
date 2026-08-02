@@ -19,7 +19,8 @@ interface Props {
   onGeneratePage: () => void
   onGenerateStory: () => void
   onGenerateConcept: () => void
-  onListenStory: () => void
+  /** 打开「AI 播客」面板（替代原「朗读」） */
+  onOpenPodcast: () => void
   generatingOverall: boolean
   generatingPage: boolean
   generatingStory: boolean
@@ -62,7 +63,7 @@ const genBtn = (label: string, onClick: () => void, disabled: boolean) => (
 export default function SummaryPanel({
   overall, page, story, concept,
   onGenerateOverall, onGeneratePage, onGenerateStory, onGenerateConcept,
-  onListenStory,
+  onOpenPodcast,
   generatingOverall, generatingPage, generatingStory, generatingConcept,
   unitTitle,
 }: Props) {
@@ -76,9 +77,7 @@ export default function SummaryPanel({
           action={
             <span style={{ display: 'flex', gap: 2 }}>
               {genBtn(story ? '重生成' : '生成', onGenerateStory, generatingStory)}
-              {story?.status === 'done' && (
-                <Button size="small" type="link" icon={<SoundOutlined />} onClick={onListenStory}>朗读</Button>
-              )}
+              <Button size="small" type="link" icon={<SoundOutlined />} onClick={onOpenPodcast}>AI 播客</Button>
             </span>
           }
         />

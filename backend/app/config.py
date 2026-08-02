@@ -31,6 +31,26 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 100
     chunk_size_tokens: int = 1500  # target tokens per chunk
 
+    # AI 播客（TTS）
+    # provider: edge（默认，免费免 Key）/ volc（火山引擎/豆包）/ azure / mock（无声占位，纯链路测试用）
+    # edge = 开源 edge-tts 包（rany2/edge-tts），走微软 Edge 在线神经语音，无需注册付费
+    tts_provider: str = "edge"
+    # --- edge-tts（免费）---
+    edge_tts_voice_a: str = "zh-CN-XiaoxiaoNeural"  # 主播A 女声（晓晓）
+    edge_tts_voice_b: str = "zh-CN-YunxiNeural"     # 主播B 男声（云希）
+    # --- 火山引擎/字节豆包 TTS（可选，付费）---
+    volc_app_id: str = ""
+    volc_access_token: str = ""
+    volc_tts_cluster: str = "volcano_mega"   # 大模型音色集群；普通音色用 volcano_tts
+    volc_tts_voice_a: str = "BV001_streaming"  # 主播A 女声（灿灿）
+    volc_tts_voice_b: str = "BV700_streaming"  # 主播B 男声（辉晓）
+    # --- Azure 认知服务 TTS（可选，付费）---
+    azure_tts_key: str = ""
+    azure_tts_region: str = "eastasia"
+    azure_tts_voice_a: str = "zh-CN-XiaoxiaoNeural"
+    azure_tts_voice_b: str = "zh-CN-YunxiNeural"
+    podcast_audio_dir: str = str(BASE_DIR / "data" / "podcast_audio")
+
     # CORS
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 

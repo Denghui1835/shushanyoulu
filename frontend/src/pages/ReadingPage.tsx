@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Select, Button, Space, Switch, Tabs, Modal, Input, message, Spin, Tag, Tooltip, Segmented,
+  Select, Button, Space, Switch, Tabs, Modal, Input, message, Spin, Tag, Tooltip, Segmented, Empty,
 } from 'antd'
 import {
   LeftOutlined, RightOutlined, SoundOutlined, ReadOutlined, BookOutlined,
@@ -12,8 +12,7 @@ import ReadingUnit, { cleanText, type Range } from '../components/ReadingUnit'
 import NativeFileView from '../components/NativeFileView'
 import AnnotationPanel, { type Annotation } from '../components/AnnotationPanel'
 import SummaryPanel, { type SummaryItem } from '../components/SummaryPanel'
-import TTSControls from '../components/TTSControls'
-import { useTTS, splitSentences, type TTSSource } from '../hooks/useTTS'
+import PodcastPanel from '../components/PodcastPanel'
 
 interface Unit {
   index: number
@@ -47,19 +46,6 @@ export default function ReadingPage() {
   const [genConcept, setGenConcept] = useState(false)
   const generatingRef = useRef<Set<string>>(new Set())
 
-  // 朗读
-  const [ttsOn, setTtsOn] = useState(false)
-  const [ttsSource, setTtsSource] = useState<TTSSource>('original')
-  const tts = useTTS({
-    onSentenceChange: (idx) => {
-      // 高亮当前朗读句（仅原文模式有意义）
-      if (ttsSourceRef.current === 'original') ttsSentenceRef.current = idx
-    },
-  })
-  const ttsSourceRef = useRef<TTSSource>('original')
-  ttsSourceRef.current = ttsSource
-  const ttsSentenceRef = useRef(-1)
-
   // 百宝箱（可折叠悬浮面板）
   const [baibaoOpen, setBaibaoOpen] = useState(false)
   const [sidebarTab, setSidebarTab] = useState('ann')
@@ -88,7 +74,7 @@ export default function ReadingPage() {
 
   const loadDocData = async () => {
     setLoadingContent(true)
-    setCur(0); setJump(null); tts.stop(); ttsSentenceRef.current = -1
+    setCur(0); setJump(null)
     try {
       const [content, anns, sums] = await Promise.all([
         api.getReadingContent(docId),
@@ -152,11 +138,9 @@ export default function ReadingPage() {
     setSidebarTab('sum')
     await ensureSummary('concept')
   }
-  const onListenStory = async () => {
-    const s = summaries['story']
-    if (s?.status !== 'done') { message.info('先生成听书式总结'); return }
-    setTtsSource('story')
-    await tts.play(s.content, 0)
+  const onOpenPodcast = () => {
+    if (isPdfFull) setViewMode('text')  // 全页浏览时切回文本视图以显示侧栏
+    setSidebarTab('podcast')
   }
 
   // ---------- 批注 ----------
@@ -198,47 +182,13 @@ export default function ReadingPage() {
     setJump({ unit: ann.unit_index, start: ann.start_offset, end: ann.end_offset })
   }
 
-  // 渲染与朗读共用清洗文本，保证句子高亮偏移一致
+  // 渲染用的清洗文本（批注偏移一致）
   const displayText = useMemo(() => cleanText(curUnit?.text || ''), [curUnit])
-
-  const playTTS = async () => {
-    if (!curUnit) return
-    if (tts.state === 'paused') { tts.resume(); return }
-    if (tts.state === 'playing') { tts.pause(); return }
-    let text = displayText
-    if (ttsSource === 'summary') {
-      const s = summaries[`page:${cur}`]
-      if (s?.status === 'done') text = s.content
-      else if (!s) { message.info('先生成本页总结，或先朗读原文'); return }
-      else { message.info('总结还在生成中或生成失败'); return }
-    } else if (ttsSource === 'story') {
-      const s = summaries['story']
-      if (s?.status === 'done') text = s.content
-      else { message.info('先生成「章节总结 · 听书式」，或先朗读原文'); return }
-    }
-    await tts.play(text, 0)
-  }
-
-  // 翻页联动：朗读中自动切到新页内容
-  useEffect(() => {
-    if (ttsOn && curUnit && (tts.state === 'playing' || tts.state === 'paused') && ttsSource === 'original') {
-      if (displayText) { tts.stop(); ttsSentenceRef.current = -1; tts.play(displayText, 0) }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cur, curUnit?.index])
-
-  useEffect(() => () => tts.stop(), [])
 
   // ---------- 渲染 ----------
   const highlightRanges: Range[] = []
   // 批注跳转高亮
   if (jump && jump.unit === cur) highlightRanges.push({ start: jump.start, end: jump.end })
-  // 朗读当前句高亮（原文模式）
-  const speakRanges: Range[] = []
-  if (ttsSource === 'original' && ttsSentenceRef.current >= 0 && tts.total > 0) {
-    const sent = tts.sentences[ttsSentenceRef.current]
-    if (sent) speakRanges.push({ start: sent.start, end: sent.end })
-  }
 
   return (
     <div style={{ maxWidth: isPdfFull ? '100%' : 1100, margin: '0 auto' }}>
@@ -273,12 +223,9 @@ export default function ReadingPage() {
         <Tooltip title="每页总结开关，翻页自动切换">
           <Space size={4}><ReadOutlined /><Switch checked={pageOn} onChange={togglePage} size="small" /><span style={{ fontSize: 12 }}>每页总结</span></Space>
         </Tooltip>
-        <Tooltip title="听书朗读">
-          <Button
-            type={ttsOn ? 'primary' : 'default'} icon={<SoundOutlined />}
-            onClick={() => setTtsOn(o => !o)}
-          >
-            朗读
+        <Tooltip title="AI 播客：按当前章节生成双主播对谈音频">
+          <Button type="primary" ghost icon={<SoundOutlined />} onClick={onOpenPodcast}>
+            AI 播客
           </Button>
         </Tooltip>
         <Segmented
@@ -307,7 +254,6 @@ export default function ReadingPage() {
               <ReadingUnit
                 text={displayText}
                 highlightRanges={highlightRanges}
-                speakRanges={speakRanges}
                 onSelect={onSelectText}
               />
             </>
@@ -341,11 +287,19 @@ export default function ReadingPage() {
                       onGeneratePage={() => ensureSummary('page')}
                       onGenerateStory={onGenerateStory}
                       onGenerateConcept={onGenerateConcept}
-                      onListenStory={onListenStory}
+                      onOpenPodcast={onOpenPodcast}
                       generatingOverall={genOverall} generatingPage={genPage}
                       generatingStory={genStory} generatingConcept={genConcept}
                       unitTitle={curUnit?.title || ''}
                     />
+                  ),
+                },
+                {
+                  key: 'podcast', label: 'AI 播客',
+                  children: curUnit ? (
+                    <PodcastPanel docId={docId} unitIndex={curUnit.index} unitTitle={curUnit.title} />
+                  ) : (
+                    <Empty description="当前没有可生成播客的内容" />
                   ),
                 },
               ]}
@@ -374,6 +328,7 @@ export default function ReadingPage() {
                 if (viewMode !== 'text') { setViewMode('text'); message.info('批注请在「文本」视图进行') }
                 setSidebarTab('ann')
               }}>批注工具</Button>
+              <Button icon={<SoundOutlined />} onClick={onOpenPodcast}>AI 播客</Button>
               <Button icon={<SoundOutlined />} onClick={onGenerateStory}>章节总结 · 听书式</Button>
               <Button icon={<FileTextOutlined />} onClick={onGenerateConcept}>概念总结</Button>
               <Button icon={<EditFilled />} onClick={() => navigate(`/quiz?doc=${docId}`)}>练习题</Button>
@@ -382,18 +337,6 @@ export default function ReadingPage() {
           </div>
         )}
       </div>
-
-      {/* 朗读控制条 */}
-      {ttsOn && curUnit && (
-        <TTSControls
-          state={tts.state} currentIndex={tts.currentIndex} total={tts.total}
-          rate={tts.rate} source={ttsSource}
-          disabled={!curUnit}
-          onSourceChange={setTtsSource}
-          onPlayPause={playTTS} onStop={tts.stop} onPrev={tts.prev} onNext={tts.next}
-          onRateChange={tts.setRate}
-        />
-      )}
 
       {/* 添加批注弹窗 */}
       <Modal

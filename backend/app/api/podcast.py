@@ -6,8 +6,8 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -217,14 +217,57 @@ async def generate_audio(document_id: str, unit_index: int = 0, db: AsyncSession
 
 
 @router.get("/{document_id}/audio")
-async def get_audio(document_id: str, unit_index: int = 0, db: AsyncSession = Depends(get_db)):
-    """流式返回播客音频文件（mp3）。"""
+async def get_audio(document_id: str, request: Request,
+                    unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+    """流式返回播客音频文件（mp3），支持 HTTP Range（浏览器拖动进度条必需）。"""
     await _get_doc(db, document_id)
     script = await _get_script(db, document_id, unit_index)
     if not script or not script.audio_path or not Path(script.audio_path).exists():
         raise HTTPException(status_code=404, detail="音频不存在，请先生成")
     media_type = "audio/wav" if script.audio_path.lower().endswith(".wav") else "audio/mpeg"
-    return FileResponse(
-        script.audio_path, media_type=media_type,
-        filename=f"podcast_{document_id[:8]}_unit{unit_index}.mp3",
-    )
+    return _serve_audio_range(Path(script.audio_path), media_type, request)
+
+
+def _serve_audio_range(path: Path, media_type: str, request: Request) -> Response:
+    """支持 Range 请求的音频响应：正常 200 全量；带 Range 头返回 206 分段。
+
+    浏览器/播放器依赖 206 + Content-Range 才能拖动进度条、正确显示总时长。
+    """
+    size = path.stat().st_size
+    start, end = 0, size - 1
+    status = 200
+
+    range_header = request.headers.get("range", "")
+    if range_header.startswith("bytes="):
+        spec = range_header[len("bytes="):].split(",", 1)[0].strip()
+        if "-" in spec:
+            a, b = spec.split("-", 1)
+            try:
+                if a == "":
+                    # 后缀范围：bytes=-N → 最后 N 字节
+                    n = int(b)
+                    start = max(0, size - n)
+                else:
+                    start = int(a)
+                    if b != "":
+                        end = min(int(b), size - 1)
+                if start > end or start >= size:
+                    return Response(status_code=416,
+                                    headers={"Content-Range": f"bytes */{size}"})
+                status = 206
+            except ValueError:
+                status = 200
+
+    with path.open("rb") as f:
+        f.seek(start)
+        content = f.read(end - start + 1)
+
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Type": media_type,
+        "Content-Length": str(len(content)),
+        "Content-Disposition": f'inline; filename="{path.name}"',
+    }
+    if status == 206:
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+    return Response(content=content, status_code=status, headers=headers)

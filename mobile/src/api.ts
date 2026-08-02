@@ -7,6 +7,10 @@ import EventSource from 'react-native-sse'
 import { API_BASE_URL, fullUrl } from './config'
 import { getToken } from './tokenStore'
 import { parseSSEData } from '../../shared/sse'
+import type {
+  CompanionStatus, CheckIn, StudyPlan, Project, ProjectDetail, Chapter,
+  Flashcard, Question, PodcastScript, PlazaItem, MeInfo,
+} from '../../shared/types'
 
 // ---------------------------------------------------------------- 基础请求
 
@@ -100,28 +104,28 @@ function streamSSE(path: string, body: unknown): AsyncGenerator<any> {
 
 export const api = {
   // 伴学
-  getStatus: () => get('/api/companion/status'),
-  getProfile: () => get('/api/companion/profile'),
-  saveProfile: (data: any) => post('/api/companion/profile', data),
-  getSession: () => get('/api/companion/session'),
-  getMessages: (sessionId: string) => get(`/api/companion/messages?session_id=${sessionId}`),
-  createPlan: (data?: any) => post('/api/companion/plan', data),
-  adjustPlan: () => post('/api/companion/plan/adjust'),
+  getStatus: () => get<CompanionStatus>('/api/companion/status'),
+  getProfile: () => get<any>('/api/companion/profile'),
+  saveProfile: (data: any) => post<any>('/api/companion/profile', data),
+  getSession: () => get<{ id: string; title: string }>('/api/companion/session'),
+  getMessages: (sessionId: string) => get<any[]>(`/api/companion/messages?session_id=${sessionId}`),
+  createPlan: (data?: any) => post<any>('/api/companion/plan', data),
+  adjustPlan: () => post<any>('/api/companion/plan/adjust'),
   chat: (sessionId: string, message: string) => streamSSE('/api/companion/chat', { session_id: sessionId, message }),
 
   // 打卡
-  getCheckin: () => get('/api/study/checkin'),
-  doCheckin: () => post('/api/study/checkin'),
+  getCheckin: () => get<CheckIn>('/api/study/checkin'),
+  doCheckin: () => post<CheckIn>('/api/study/checkin'),
 
   // 计划
-  getPlan: () => get('/api/study/plan'),
-  completeTask: (taskId: string) => post(`/api/study/tasks/${taskId}/complete`),
+  getPlan: () => get<StudyPlan>('/api/study/plan'),
+  completeTask: (taskId: string) => post<any>(`/api/study/tasks/${taskId}/complete`),
 
   // 书架 / 项目
-  listProjects: () => get('/api/projects'),
-  createProject: (data: any) => post('/api/projects', data),
-  getProject: (id: string) => get(`/api/projects/${id}`),
-  deleteProject: (id: string) => del(`/api/projects/${id}`),
+  listProjects: () => get<Project[]>('/api/projects'),
+  createProject: (data: any) => post<Project>('/api/projects', data),
+  getProject: (id: string) => get<ProjectDetail>(`/api/projects/${id}`),
+  deleteProject: (id: string) => del<any>(`/api/projects/${id}`),
   importProject: (file: any, title?: string) => {
     const fd = new FormData()
     fd.append('file', { uri: file.uri, name: file.name ?? 'project.yqp', type: file.mimeType ?? 'application/octet-stream' } as any)
@@ -131,53 +135,53 @@ export const api = {
   exportProjectUrl: (id: string) => fullUrl(`/api/projects/export/${id}`),
 
   // 文档
-  listDocuments: () => get('/api/documents'),
+  listDocuments: () => get<any[]>('/api/documents'),
 
   // 题目 / 闪卡
   listQuestions: (docId: string, params?: Record<string, any>) =>
-    get(`/api/questions/${docId}?${new URLSearchParams(params).toString()}`),
-  generateQuestions: (docId: string, count = 8) => post(`/api/questions/${docId}/generate?count=${count}`),
-  gradeQuestion: (qid: string, answer: string) => post(`/api/questions/${qid}/grade`, { user_answer: answer }),
-  discardQuestion: (qid: string) => post(`/api/questions/${qid}/discard`),
-  restoreQuestion: (qid: string) => post(`/api/questions/${qid}/restore`),
-  addToMistakeBook: (qid: string) => post(`/api/questions/${qid}/mistake-book`),
-  removeFromMistakeBook: (qid: string) => del(`/api/questions/${qid}/mistake-book`),
+    get<{ count: number; questions: Question[] }>(`/api/questions/${docId}?${new URLSearchParams(params).toString()}`),
+  generateQuestions: (docId: string, count = 8) => post<{ count: number; questions: Question[] }>(`/api/questions/${docId}/generate?count=${count}`),
+  gradeQuestion: (qid: string, answer: string) => post<any>(`/api/questions/${qid}/grade`, { user_answer: answer }),
+  discardQuestion: (qid: string) => post<any>(`/api/questions/${qid}/discard`),
+  restoreQuestion: (qid: string) => post<any>(`/api/questions/${qid}/restore`),
+  addToMistakeBook: (qid: string) => post<any>(`/api/questions/${qid}/mistake-book`),
+  removeFromMistakeBook: (qid: string) => del<any>(`/api/questions/${qid}/mistake-book`),
   listFlashcards: (docId: string, includeDiscarded = false) =>
-    get(`/api/flashcards/${docId}?include_discarded=${includeDiscarded}`),
-  generateFlashcards: (docId: string, count = 15) => post(`/api/flashcards/${docId}/generate?count=${count}`),
-  getDueCards: () => get('/api/flashcards/due'),
-  reviewCard: (cardId: string, rating: number) => post(`/api/flashcards/${cardId}/review`, { rating }),
-  discardFlashcard: (cardId: string) => post(`/api/flashcards/${cardId}/discard`),
-  restoreFlashcard: (cardId: string) => post(`/api/flashcards/${cardId}/restore`),
+    get<{ count: number; flashcards: Flashcard[] }>(`/api/flashcards/${docId}?include_discarded=${includeDiscarded}`),
+  generateFlashcards: (docId: string, count = 15) => post<{ count: number; flashcards: Flashcard[] }>(`/api/flashcards/${docId}/generate?count=${count}`),
+  getDueCards: () => get<{ count: number; flashcards: Flashcard[] }>('/api/flashcards/due'),
+  reviewCard: (cardId: string, rating: number) => post<any>(`/api/flashcards/${cardId}/review`, { rating }),
+  discardFlashcard: (cardId: string) => post<any>(`/api/flashcards/${cardId}/discard`),
+  restoreFlashcard: (cardId: string) => post<any>(`/api/flashcards/${cardId}/restore`),
 
   // 阅读
-  getReadingContent: (docId: string) => get(`/api/reading/${docId}/content`),
-  listAnnotations: (docId: string) => get(`/api/reading/${docId}/annotations`),
-  createAnnotation: (docId: string, data: any) => post(`/api/reading/${docId}/annotations`, data),
-  deleteAnnotation: (annId: string) => del(`/api/reading/annotations/${annId}`),
+  getReadingContent: (docId: string) => get<{ units: any[] }>(`/api/reading/${docId}/content`),
+  listAnnotations: (docId: string) => get<any[]>(`/api/reading/${docId}/annotations`),
+  createAnnotation: (docId: string, data: any) => post<any>(`/api/reading/${docId}/annotations`, data),
+  deleteAnnotation: (annId: string) => del<any>(`/api/reading/annotations/${annId}`),
 
   // 播客
-  getPodcastScript: (docId: string, unitIndex: number) => get(`/api/podcast/${docId}/script?unit_index=${unitIndex}`),
-  generatePodcastScript: (docId: string, unitIndex: number) => post(`/api/podcast/${docId}/script?unit_index=${unitIndex}`),
-  generatePodcastAudio: (docId: string, unitIndex: number) => post(`/api/podcast/${docId}/audio?unit_index=${unitIndex}`),
+  getPodcastScript: (docId: string, unitIndex: number) => get<PodcastScript>(`/api/podcast/${docId}/script?unit_index=${unitIndex}`),
+  generatePodcastScript: (docId: string, unitIndex: number) => post<PodcastScript>(`/api/podcast/${docId}/script?unit_index=${unitIndex}`),
+  generatePodcastAudio: (docId: string, unitIndex: number) => post<PodcastScript>(`/api/podcast/${docId}/audio?unit_index=${unitIndex}`),
   editPodcastScript: (docId: string, unitIndex: number, instruction: string) =>
-    post(`/api/podcast/${docId}/edit-script?unit_index=${unitIndex}`, { instruction }),
+    post<PodcastScript>(`/api/podcast/${docId}/edit-script?unit_index=${unitIndex}`, { instruction }),
   savePodcastScript: (docId: string, unitIndex: number, content: string) =>
-    put(`/api/podcast/${docId}/script?unit_index=${unitIndex}`, { content }),
-  undoPodcastScript: (docId: string, unitIndex: number) => post(`/api/podcast/${docId}/undo-script?unit_index=${unitIndex}`),
+    put<PodcastScript>(`/api/podcast/${docId}/script?unit_index=${unitIndex}`, { content }),
+  undoPodcastScript: (docId: string, unitIndex: number) => post<PodcastScript>(`/api/podcast/${docId}/undo-script?unit_index=${unitIndex}`),
   podcastAudioUrl: (docId: string, unitIndex: number) => fullUrl(`/api/podcast/${docId}/audio?unit_index=${unitIndex}`),
-  listPodcasts: () => get('/api/podcast/list'),
-  deletePodcast: (docId: string, unitIndex: number) => del(`/api/podcast/${docId}?unit_index=${unitIndex}`),
+  listPodcasts: () => get<{ count: number; podcasts: any[] }>('/api/podcast/list'),
+  deletePodcast: (docId: string, unitIndex: number) => del<any>(`/api/podcast/${docId}?unit_index=${unitIndex}`),
 
   // 社区
-  register: (username: string, password: string) => post('/api/auth/register', { username, password }),
-  login: (username: string, password: string) => post('/api/auth/login', { username, password }),
-  logout: () => post('/api/auth/logout'),
-  me: () => get('/api/auth/me'),
-  getPlaza: () => get('/api/community/plaza'),
-  publishProject: (id: string) => post(`/api/community/projects/${id}/publish`),
-  unpublishProject: (id: string) => post(`/api/community/projects/${id}/unpublish`),
-  learnProject: (id: string) => post(`/api/community/plaza/${id}/learn`),
+  register: (username: string, password: string) => post<{ token: string; user: any }>('/api/auth/register', { username, password }),
+  login: (username: string, password: string) => post<{ token: string; user: any }>('/api/auth/login', { username, password }),
+  logout: () => post<any>('/api/auth/logout'),
+  me: () => get<MeInfo>('/api/auth/me'),
+  getPlaza: () => get<{ count: number; items: PlazaItem[] }>('/api/community/plaza'),
+  publishProject: (id: string) => post<any>(`/api/community/projects/${id}/publish`),
+  unpublishProject: (id: string) => post<any>(`/api/community/projects/${id}/unpublish`),
+  learnProject: (id: string) => post<any>(`/api/community/plaza/${id}/learn`),
 }
 
 export { streamSSE }

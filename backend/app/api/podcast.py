@@ -48,7 +48,7 @@ def _serialize(s: PodcastScript) -> dict:
         "content": s.content, "status": s.status, "error": s.error,
         "has_audio": bool(s.audio_path),
         "can_undo": bool(s.prev_content),  # 是否有可撤回的上一步
-        "audio_seconds": estimate_audio_seconds(s.content),
+        "audio_seconds": s.audio_seconds if s.audio_seconds else estimate_audio_seconds(s.content),
         "updated_at": s.updated_at.isoformat(),
     }
 
@@ -91,7 +91,7 @@ async def list_podcasts(db: AsyncSession = Depends(get_db)):
                                           f"第 {s.unit_index + 1} 单元"),
             "content": s.content, "status": s.status, "error": s.error,
             "has_audio": bool(s.audio_path),
-            "audio_seconds": estimate_audio_seconds(s.content),
+            "audio_seconds": s.audio_seconds if s.audio_seconds else estimate_audio_seconds(s.content),
             "updated_at": s.updated_at.isoformat(),
         })
     return {"count": len(items), "podcasts": items}

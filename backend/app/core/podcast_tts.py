@@ -267,9 +267,13 @@ async def script_to_audio(db: AsyncSession, script: PodcastScript) -> PodcastScr
     if not parts:
         raise TTSError("TTS 未产出任何音频")
     out_path.write_bytes(b"".join(parts))
-    logger.info("播客音频已生成: %s (%d 段, %d KB)", out_path.name, total, out_path.stat().st_size // 1024)
+    real_sec = _mp3_seconds(str(out_path))
+    logger.info("播客音频已生成: %s (%d 段, %d KB, 实测 %s 秒)",
+                out_path.name, total, out_path.stat().st_size // 1024,
+                real_sec if real_sec else "未知")
 
     script.audio_path = str(out_path)
+    script.audio_seconds = real_sec
     script.status = "done"
     await db.commit()
     await db.refresh(script)
@@ -277,5 +281,19 @@ async def script_to_audio(db: AsyncSession, script: PodcastScript) -> PodcastScr
 
 
 def estimate_audio_seconds(content: str) -> int:
-    """按文稿字数估算播客时长（秒），供前端展示。"""
-    return max(1, math.ceil(len(content or "") / 4.5))
+    """按口播字数估算播客时长（秒），供前端展示（无实测时长时兜底）。
+
+    只计说话人实际文本（不含「主播A：」标签与空行）；
+    实际口播速度约 5.2 字/秒（edge 语速 +6%~+10%）。
+    """
+    spoken = sum(len(t.get("text") or "") for t in parse_turns(content or ""))
+    return max(1, math.ceil(spoken / 5.2))
+
+
+def _mp3_seconds(path: str) -> int | None:
+    """读 mp3 真实时长（秒）；解析失败返回 None。"""
+    try:
+        from mutagen.mp3 import MP3
+        return int(MP3(path).info.length)
+    except Exception:
+        return None

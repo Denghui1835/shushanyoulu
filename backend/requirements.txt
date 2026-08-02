@@ -16,6 +16,7 @@ tiktoken>=0.7.0
 
 # AI 播客 TTS（免费免 Key，走微软 Edge 在线神经语音；音色见 python -m edge_tts --list-voices）
 edge-tts>=6.1.0
+mutagen>=1.47.0   # 读 mp3 真实时长，用于播客时长展示
 
 # Document parsing
 PyMuPDF>=1.24.0       # PDF

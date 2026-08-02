@@ -77,6 +77,7 @@ _COLUMN_MIGRATIONS = {
     ],
     "podcast_scripts": [
         ("prev_content", "ALTER TABLE podcast_scripts ADD COLUMN prev_content TEXT"),
+        ("audio_seconds", "ALTER TABLE podcast_scripts ADD COLUMN audio_seconds INTEGER"),
     ],
 }
 

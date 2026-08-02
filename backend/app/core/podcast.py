@@ -172,13 +172,14 @@ async def undo_podcast_script(db: AsyncSession, document: Document, unit_index: 
 
 
 async def _delete_audio(script: PodcastScript) -> None:
-    """删除文稿关联的音频文件（如有）。"""
+    """删除文稿关联的音频文件与实测时长（如有）。"""
     if script.audio_path:
         try:
             from pathlib import Path
             Path(script.audio_path).unlink(missing_ok=True)
         except Exception as e:
             logger.warning("清理播客音频失败: %s", e)
+    script.audio_seconds = None
 
 
 # ---------------------------------------------------------------- 文稿修改（打字/语音指令）

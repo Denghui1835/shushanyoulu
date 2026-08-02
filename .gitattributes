@@ -1,0 +1,11 @@
+# 统一行尾：仓库存 LF，Windows 检出 CRLF（避免每次提交都出现转换警告）
+* text=auto
+
+# 二进制文件不做行尾转换
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary

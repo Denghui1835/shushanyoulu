@@ -161,6 +161,9 @@ export const api = {
     http.get(`/reading/${docId}/summaries`).then(r => r.data),
   generateSummary: (docId: string, scope: string, unitIndex?: number) =>
     http.post(`/reading/${docId}/summarize`, { scope, unit_index: unitIndex }).then(r => r.data),
+  // 关键词挖空背诵
+  getBlankContent: (docId: string, unitIndex: number) =>
+    http.get(`/reading/${docId}/blank`, { params: { unit_index: unitIndex } }).then(r => r.data),
 
   // AI 播客（每阅读单元独立一条）：文稿生成/查询、音频生成/试听
   getPodcastScript: (docId: string, unitIndex: number) =>

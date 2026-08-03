@@ -72,3 +72,14 @@ class PodcastScript(Base):
     prev_content: Mapped[str | None] = mapped_column(Text, nullable=True)  # 撤回上一步：上次修改前的文稿
     audio_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 实测音频时长（秒）
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class BlankCache(Base):
+    """关键词挖空缓存：某阅读单元的关键词列表（LLM 提取一次，重复查看不再调模型）。"""
+    __tablename__ = "blank_caches"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    document_id: Mapped[str] = mapped_column(String(36), ForeignKey("documents.id"), index=True)
+    unit_index: Mapped[int] = mapped_column(Integer, default=0)
+    keywords: Mapped[str] = mapped_column(Text, default="[]")  # JSON 数组
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)

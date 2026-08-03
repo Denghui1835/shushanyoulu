@@ -13,6 +13,7 @@ import NativeFileView from '../components/NativeFileView'
 import AnnotationPanel, { type Annotation } from '../components/AnnotationPanel'
 import SummaryPanel, { type SummaryItem } from '../components/SummaryPanel'
 import PodcastPanel from '../components/PodcastPanel'
+import BlankView from '../components/BlankView'
 
 interface Unit {
   index: number
@@ -50,8 +51,8 @@ export default function ReadingPage() {
   const [baibaoOpen, setBaibaoOpen] = useState(false)
   const [sidebarTab, setSidebarTab] = useState('ann')
 
-  // 阅读视图：原文件（原生渲染） / 文本（可批注）
-  const [viewMode, setViewMode] = useState<'native' | 'text'>('native')
+  // 阅读视图：原文件（原生渲染） / 文本（可批注） / 挖空（关键词背诵）
+  const [viewMode, setViewMode] = useState<'native' | 'text' | 'blank'>('native')
 
   const curUnit = units[cur]
   const currentContentType = docs.find((d: any) => d.id === docId)?.content_type || 'pdf'
@@ -230,10 +231,11 @@ export default function ReadingPage() {
         </Tooltip>
         <Segmented
           value={viewMode}
-          onChange={v => setViewMode(v as 'native' | 'text')}
+          onChange={v => setViewMode(v as 'native' | 'text' | 'blank')}
           options={[
             { value: 'native', label: '原文件' },
             { value: 'text', label: '文本' },
+            { value: 'blank', label: '挖空' },
           ]}
           size="small"
         />
@@ -248,6 +250,8 @@ export default function ReadingPage() {
             <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>先在「资料库」上传一份文档</div>
           ) : viewMode === 'native' ? (
             <NativeFileView docId={docId} contentType={currentContentType} full={isPdfFull} />
+          ) : viewMode === 'blank' ? (
+            <BlankView docId={docId} unitIndex={cur} />
           ) : (
             <>
               <h3 style={{ marginTop: 0 }}>{curUnit.title}</h3>

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.core.reading_content import get_reading_units
 from app.core.summarize import generate_summary
+from app.core.blank import get_blank_content
 from app.models import Document, Annotation, DocSummary
 
 router = APIRouter(prefix="/api/reading", tags=["reading"])
@@ -31,6 +32,22 @@ async def get_content(document_id: str, db: AsyncSession = Depends(get_db)):
         "content_type": doc.content_type,
         "units": units,
     }
+
+
+# ---------------------------------------------------------------- 关键词挖空
+
+@router.get("/{document_id}/blank")
+async def blank_content(document_id: str, unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+    """关键词挖空背诵：某阅读单元的关键词 + 出现位置（前端替换为可点击空白）。"""
+    doc = await _get_doc(db, document_id)
+    try:
+        data = await get_blank_content(db, doc, unit_index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("挖空内容生成失败 doc=%s unit=%s", document_id, unit_index)
+        raise HTTPException(status_code=500, detail=f"生成失败：{str(e)[:200]}")
+    return data
 
 
 # ---------------------------------------------------------------- 批注

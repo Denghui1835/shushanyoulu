@@ -1,4 +1,4 @@
-"""元气搭子 AI伴学 — FastAPI 应用入口."""
+"""书山有路 AI伴学 — FastAPI 应用入口."""
 import logging
 import mimetypes
 import os
@@ -65,8 +65,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="元气搭子 API",
-    description="元气搭子 - AI 主动伴学，让学习有人陪伴",
+    title="书山有路 API",
+    description="书山有路 - AI 主动伴学，让学习有人陪伴",
     version=settings.app_version,
     lifespan=lifespan,
 )
@@ -110,7 +110,7 @@ app.include_router(auth_router)
 async def root():
     if DIST_DIR and (DIST_DIR / "index.html").exists():
         return FileResponse(DIST_DIR / "index.html")
-    return {"name": "元气搭子 AI伴学", "version": settings.app_version, "status": "running", "docs": "/docs"}
+    return {"name": "书山有路 AI伴学", "version": settings.app_version, "status": "running", "docs": "/docs"}
 
 
 @app.get("/health")

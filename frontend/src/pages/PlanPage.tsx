@@ -52,7 +52,7 @@ export default function PlanPage() {
         <ThunderboltOutlined style={{ fontSize: 56, color: '#7c5cfc' }} />
         <h2 style={{ marginTop: 16 }}>还没有学习计划</h2>
         <p style={{ color: '#999' }}>
-          去「伴学首页」告诉元气搭子你的目标，它就会为你量身制定一份学习计划
+          去「伴学首页」告诉书山有路你的目标，它就会为你量身制定一份学习计划
         </p>
         <Button type="primary" onClick={() => (window.location.href = '/')}>去制定计划</Button>
       </div>

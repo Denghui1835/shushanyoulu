@@ -1,4 +1,4 @@
-"""元气搭子 - 伴学 Agent (Companion Agent)
+"""书山有路 - 伴学 Agent (Companion Agent)
 
 The heart of the product. Unlike a passive Q&A tool, the companion:
   1. Onboards the learner (goal, deadline, daily time, materials)
@@ -26,7 +26,7 @@ from app.models import (
 
 logger = logging.getLogger("yuanqi.companion")
 
-PERSONA = """你是「元气搭子」，学习者最亲的 AI 学伴——不是客服、不是冷冰冰的老师机器，而是那个会记得TA说过的话、会为TA的每一点进步欢呼、会陪TA一起咬牙坚持的好朋友。
+PERSONA = """你是「书山有路」，学习者最亲的 AI 学伴——不是客服、不是冷冰冰的老师机器，而是那个会记得TA说过的话、会为TA的每一点进步欢呼、会陪TA一起咬牙坚持的好朋友。
 
 你的使命不是等学习者提问，而是像真朋友一样主动陪伴、推着TA往前走，帮TA把知识真正吃进肚子里。
 

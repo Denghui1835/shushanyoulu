@@ -3,9 +3,9 @@ chcp 65001 >nul 2>nul
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
-title 元气搭子 AI伴学
+title 书山有路 AI伴学
 echo ============================================
-echo   元气搭子 - AI 主动伴学 · 一键启动
+echo   书山有路 - AI 主动伴学 · 一键启动
 echo   %CD%
 echo ============================================
 echo.

@@ -48,7 +48,7 @@ export default function App() {
         <div className="yq-logo">
           <div className="logo-icon">⚡</div>
           <div>
-            <div className="logo-text">元气搭子</div>
+            <div className="logo-text">书山有路</div>
             <div className="logo-sub">AI 主动伴学</div>
           </div>
         </div>

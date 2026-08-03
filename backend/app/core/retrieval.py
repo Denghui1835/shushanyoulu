@@ -1,4 +1,4 @@
-"""Lightweight retrieval for 元气搭子.
+"""Lightweight retrieval for 书山有路.
 
 MVP uses lexical retrieval (jieba tokenization + overlap scoring) over stored
 chunks — no heavy embedding model needed. The interface is a simple function so a

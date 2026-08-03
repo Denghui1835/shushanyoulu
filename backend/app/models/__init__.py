@@ -1,4 +1,4 @@
-"""元气搭子 data models."""
+"""书山有路 data models."""
 from app.models.user import User, AuthToken
 from app.models.project import Project
 from app.models.plan import LearningPlan, PlanTask, CheckIn

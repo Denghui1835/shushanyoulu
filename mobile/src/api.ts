@@ -1,5 +1,5 @@
 /**
- * 元气搭子 · 移动端 API 层
+ * 书山有路 · 移动端 API 层
  * fetch + FormData + react-native-sse 流式；token 走 SecureStore。
  * 后端地址见 src/config.ts（EXPO_PUBLIC_API_URL / app.json extra.apiBaseUrl）。
  */

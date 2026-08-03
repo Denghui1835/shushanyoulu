@@ -46,7 +46,7 @@ export default function PlanScreen() {
           <Text style={{ fontSize: 40 }}>📋</Text>
           <Text style={{ marginTop: 12, color: '#666' }}>还没有学习计划</Text>
           <Text style={{ color: '#999', marginTop: 6, textAlign: 'center' }}>
-            去「伴学」首页告诉元气搭子你的目标，它就会为你制定计划
+            去「伴学」首页告诉书山有路你的目标，它就会为你制定计划
           </Text>
         </View>
       </View>

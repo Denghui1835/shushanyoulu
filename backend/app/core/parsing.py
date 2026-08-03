@@ -1,4 +1,4 @@
-"""Lightweight document parsing + chunking for 元气搭子.
+"""Lightweight document parsing + chunking for 书山有路.
 
 Supports PDF (PyMuPDF), Word (python-docx), Markdown/TXT. Extracts text with
 heading hints, then splits into token-budgeted chunks for LLM generation.

@@ -58,7 +58,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
     if (msgs.length === 0) {
       setMessages([{
         id: 'greeting', role: 'assistant',
-        content: '你好呀！我是**元气搭子** ⚡ 我会陪你一起学习、练习、复习，还会主动提醒你该做什么。\n\n我们先互相认识一下：你最近想攻克什么目标？每天大概能投入多少时间？把学习资料上传后，我就能为你量身制定学习计划啦。',
+        content: '你好呀！我是**书山有路** ⚡ 我会陪你一起学习、练习、复习，还会主动提醒你该做什么。\n\n我们先互相认识一下：你最近想攻克什么目标？每天大概能投入多少时间？把学习资料上传后，我就能为你量身制定学习计划啦。',
       }])
     } else {
       setMessages(msgs)
@@ -204,7 +204,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
         <div className="yq-chat-header">
           <span style={{ fontSize: 22 }}>⚡</span>
           <div>
-            <b>元气搭子</b>
+            <b>书山有路</b>
             <div style={{ fontSize: 12, color: '#999' }}>
               {status.user?.goal ? `目标：${status.user.goal}` : '先聊聊你的学习目标吧'}
             </div>
@@ -240,7 +240,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
         <div className="yq-chat-input">
           <Input
             size="large"
-            placeholder="告诉元气搭子你想学什么，或问任何问题…"
+            placeholder="告诉书山有路你想学什么，或问任何问题…"
             value={input}
             onChange={e => setInput(e.target.value)}
             onPressEnter={send}

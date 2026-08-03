@@ -1,4 +1,4 @@
-"""元气搭子 - Backend Configuration"""
+"""书山有路 - Backend Configuration"""
 import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,7 +12,7 @@ DATA_DIR = Path(os.environ.get("YQ_DATA_DIR") or (BASE_DIR / "data"))
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "元气搭子 AI伴学"
+    app_name: str = "书山有路 AI伴学"
     app_version: str = "0.1.0"
     debug: bool = True
 

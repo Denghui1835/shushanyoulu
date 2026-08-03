@@ -1,4 +1,4 @@
-"""元气搭子 · 启动器（打包版入口）。
+"""书山有路 · 启动器（打包版入口）。
 
 双击 exe 即运行：定位 exe 旁的 data/ 作数据目录（数据库/文档/播客音频），
 找个空闲端口起 FastAPI 服务，自动打开浏览器。
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
     port = _free_port()
-    print(f"元气搭子启动中 → http://127.0.0.1:{port}  （数据目录：{base / 'data'}）")
+    print(f"书山有路启动中 → http://127.0.0.1:{port}  （数据目录：{base / 'data'}）")
 
     _open_browser_later(port)
 

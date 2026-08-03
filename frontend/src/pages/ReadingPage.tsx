@@ -14,6 +14,7 @@ import AnnotationPanel, { type Annotation } from '../components/AnnotationPanel'
 import SummaryPanel, { type SummaryItem } from '../components/SummaryPanel'
 import PodcastPanel from '../components/PodcastPanel'
 import BlankView from '../components/BlankView'
+import DrawingOverlay from '../components/DrawingOverlay'
 
 interface Unit {
   index: number
@@ -56,17 +57,19 @@ export default function ReadingPage() {
   const [viewMode, setViewMode] = useState<'native' | 'text' | 'blank'>('native')
   // 自由绘制模式（由百宝箱「绘制工具」控制）：PDF 在原文件视图，非 PDF 在文本视图
   const [drawing, setDrawing] = useState(false)
-  useEffect(() => {
-    const ok = (currentContentType === 'pdf' && viewMode === 'native')
-      || (currentContentType !== 'pdf' && viewMode === 'text')
-    if (!ok) setDrawing(false)
-  }, [viewMode, currentContentType])
 
   const curUnit = units[cur]
   const currentContentType = docs.find((d: any) => d.id === docId)?.content_type || 'pdf'
   // PDF 全页浏览：原文件视图 + PDF 时铺满阅读区、隐藏侧栏
   const isPdfFull = viewMode === 'native' && currentContentType === 'pdf'
   const summaryKey = (scope: string, unit?: number) => (scope === 'page' ? `page:${unit}` : scope)
+
+  // 绘制仅在对应视图生效：PDF→原文件，非 PDF→文本；否则自动退出
+  useEffect(() => {
+    const ok = (currentContentType === 'pdf' && viewMode === 'native')
+      || (currentContentType !== 'pdf' && viewMode === 'text')
+    if (!ok) setDrawing(false)
+  }, [viewMode, currentContentType])
 
   // ---------- 初始化 ----------
   useEffect(() => { loadDocs() }, [])

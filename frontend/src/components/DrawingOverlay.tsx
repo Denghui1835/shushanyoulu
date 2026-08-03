@@ -10,13 +10,15 @@ interface Props {
   docId: string
   unitIndex: number
   enabled: boolean
+  /** 退出绘制模式（由阅读页百宝箱触发） */
+  onClose?: () => void
 }
 
 const COLORS = ['#e74c3c', '#f39c12', '#2ecc71', '#3498db', '#7c5cfc', '#333333']
 const TOOL_BTN = { pen: '✏️ 画笔', highlighter: '🖍️ 荧光笔' }
 
 /** PDF 自由绘制图层：叠加在原 PDF 页面上，坐标归一化(0-1)存储，随文档保存。 */
-export default function DrawingOverlay({ docId, unitIndex, enabled }: Props) {
+export default function DrawingOverlay({ docId, unitIndex, enabled, onClose }: Props) {
   const [strokes, setStrokes] = useState<Stroke[]>([])
   const [current, setCurrent] = useState<Stroke | null>(null)
   const [tool, setTool] = useState<'pen' | 'highlighter'>('pen')
@@ -194,6 +196,7 @@ export default function DrawingOverlay({ docId, unitIndex, enabled }: Props) {
         <div style={{ fontSize: 11, color: '#999', textAlign: 'center' }}>
           {dirty ? '保存中…' : '已保存'} · {TOOL_BTN[eraser ? 'pen' : tool]}
         </div>
+        {onClose && <Button size="small" block onClick={onClose}>✅ 完成</Button>}
       </div>
     </>
   )

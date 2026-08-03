@@ -54,6 +54,9 @@ export default function ReadingPage() {
 
   // 阅读视图：原文件（原生渲染） / 文本（可批注） / 挖空（关键词背诵）
   const [viewMode, setViewMode] = useState<'native' | 'text' | 'blank'>('native')
+  // PDF 自由绘制模式（由百宝箱「绘制工具」控制，仅原文件视图生效）
+  const [drawing, setDrawing] = useState(false)
+  useEffect(() => { if (viewMode !== 'native') setDrawing(false) }, [viewMode])
 
   const curUnit = units[cur]
   const currentContentType = docs.find((d: any) => d.id === docId)?.content_type || 'pdf'
@@ -251,7 +254,8 @@ export default function ReadingPage() {
           {loadingContent ? <Spin style={{ display: 'block', margin: 60 }} /> : !curUnit ? (
             <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>先在「资料库」上传一份文档</div>
           ) : viewMode === 'native' ? (
-            <NativeFileView docId={docId} contentType={currentContentType} full={isPdfFull} />
+            <NativeFileView docId={docId} contentType={currentContentType} full={isPdfFull}
+              drawing={drawing} onDrawingChange={setDrawing} />
           ) : viewMode === 'blank' ? (
             <BlankView docId={docId} unitIndex={cur} />
           ) : (
@@ -334,6 +338,10 @@ export default function ReadingPage() {
                 if (viewMode !== 'text') { setViewMode('text'); message.info('批注请在「文本」视图进行') }
                 setSidebarTab('ann')
               }}>批注工具</Button>
+              <Button icon={<EditFilled />} onClick={() => {
+                if (viewMode !== 'native') { setViewMode('native'); message.info('绘制请在「原文件」PDF 视图进行') }
+                setDrawing(d => !d)
+              }}>绘制工具</Button>
               <Button icon={<SoundOutlined />} onClick={onOpenPodcast}>AI 播客</Button>
               <Button icon={<SoundOutlined />} onClick={onGenerateStory}>章节总结 · 听书式</Button>
               <Button icon={<FileTextOutlined />} onClick={onGenerateConcept}>概念总结</Button>

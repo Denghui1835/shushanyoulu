@@ -83,6 +83,10 @@ _COLUMN_MIGRATIONS = {
     "users": [
         ("username", "ALTER TABLE users ADD COLUMN username VARCHAR(64)"),
         ("password_hash", "ALTER TABLE users ADD COLUMN password_hash VARCHAR(256) DEFAULT ''"),
+        ("wechat_openid", "ALTER TABLE users ADD COLUMN wechat_openid VARCHAR(64)"),
+        ("api_key_encrypted", "ALTER TABLE users ADD COLUMN api_key_encrypted TEXT"),
+        ("api_base_url", "ALTER TABLE users ADD COLUMN api_base_url VARCHAR(256)"),
+        ("api_model", "ALTER TABLE users ADD COLUMN api_model VARCHAR(128)"),
     ],
     "projects": [
         ("is_public", "ALTER TABLE projects ADD COLUMN is_public BOOLEAN DEFAULT 0"),

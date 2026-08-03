@@ -124,6 +124,23 @@ class UnifiedAPIClient:
             "model_name": model_name,
         }
 
+    def configure_user_adapter(self, user_id: str, api_key: str,
+                               base_url: str | None = None, model_name: str | None = None):
+        """为用户注册独立的 LLM 适配器（用户自理 Key）。
+
+        key 为 deepseek-chat_{user_id}，get_adapter 在 contextvar 设了该用户时会优先命中。
+        """
+        adapter = OpenAICompatAdapter(
+            api_key=api_key,
+            base_url=base_url or "https://api.deepseek.com/v1",
+            model_name=model_name or "deepseek-chat",
+        )
+        adapter.provider = "deepseek-chat"
+        self._adapters[f"deepseek-chat_{user_id}"] = adapter
+
+    def remove_user_adapter(self, user_id: str):
+        self._adapters.pop(f"deepseek-chat_{user_id}", None)
+
     def get_adapter(self, model_ref: str, user_id: str | None = None) -> BaseModelAdapter:
         """Get adapter by model reference. Supports 'provider/model_name' format.
         Falls back to any configured adapter if the exact provider isn't found.

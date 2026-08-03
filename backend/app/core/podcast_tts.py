@@ -58,13 +58,20 @@ def _resolve_provider() -> str:
                 "未配置 Azure TTS：请在 backend/.env 填 AZURE_TTS_KEY / AZURE_TTS_REGION")
     elif provider == "mock":
         return provider
-    else:
+    elif provider in ("volc", "volc_mega", "volc_standard"):
         if not settings.volc_app_id or not settings.volc_access_token:
             raise TTSNotConfiguredError(
                 "未配置火山引擎 TTS：请在 backend/.env 填 VOLC_APP_ID / VOLC_ACCESS_TOKEN "
                 "（免费方案：TTS_PROVIDER=edge 无需任何 Key）")
-        provider = "volc"
+        provider = "volc_mega" if provider == "volc" else provider  # 默认大模型音色集群
     return provider
+
+
+def _volc_cluster_for(provider: str) -> str:
+    """volc_mega → volcano_mega（大模型音色）；volc_standard → volcano_tts（普通音色）。"""
+    if provider == "volc_standard":
+        return "volcano_tts"
+    return "volcano_mega"
 
 
 def _voice_for(provider: str, speaker: str) -> str:
@@ -136,14 +143,16 @@ async def _synthesize(provider: str, text: str, voice: str) -> bytes:
         return await _azure_synthesize(text, voice)
     if provider == "mock":
         return _mock_synthesize(text)
-    return await _volc_synthesize(text, voice)
+    cluster = _volc_cluster_for(provider) if provider in ("volc_mega", "volc_standard") else None
+    return await _volc_synthesize(text, voice, cluster=cluster)
 
 
-async def _volc_synthesize(text: str, voice: str) -> bytes:
+async def _volc_synthesize(text: str, voice: str, cluster: str | None = None) -> bytes:
     """火山引擎/豆包语音合成 HTTP 接口（v1 tts）。返回 mp3 字节。
 
     鉴权：Authorization = "Bearer; <APPID>; <TOKEN>"，
     TOKEN = base64(HMAC-SHA256(access_token, "volc.megatts.default"))。
+    cluster 默认 settings.volc_tts_cluster；volc_mega→volcano_mega、volc_standard→volcano_tts。
     """
     url = "https://openspeech.bytedance.com/api/v1/tts"
     resource_id = "volc.megatts.default"
@@ -157,7 +166,7 @@ async def _volc_synthesize(text: str, voice: str) -> bytes:
         "app": {
             "appid": settings.volc_app_id,
             "token": settings.volc_access_token,
-            "cluster": settings.volc_tts_cluster,
+            "cluster": cluster or settings.volc_tts_cluster,
         },
         "user": {"uid": "yq_podcast"},
         "audio": {
@@ -297,3 +306,40 @@ def _mp3_seconds(path: str) -> int | None:
         return int(MP3(path).info.length)
     except Exception:
         return None
+
+
+# ---------------------------------------------------------------- 通用 TTS（/api/tts）
+
+async def synthesize_text(text: str, voice: str | None = None,
+                          speed: float = 1.0, provider: str | None = None) -> bytes:
+    """通用单段文本合成（供 /api/tts/synthesize 使用）。返回音频字节。"""
+    p = (provider or settings.tts_provider).strip().lower()
+    if p == "edge":
+        rate = f"+{int((speed - 1) * 100)}%" if speed >= 1 else f"{int((speed - 1) * 100)}%"
+        return await _edge_synthesize(text, voice or settings.edge_tts_voice_a, rate=rate)
+    if p in ("volc", "volc_mega", "volc_standard"):
+        v = voice or settings.volc_tts_voice_a
+        cluster = _volc_cluster_for("volc_mega" if p == "volc" else p)
+        return await _volc_synthesize(text, v, cluster=cluster)
+    if p == "azure":
+        return await _azure_synthesize(text, voice or settings.azure_tts_voice_a)
+    if p == "mock":
+        return _mock_synthesize(text)
+    raise TTSError(f"未知 TTS provider: {p}")
+
+
+def list_voices() -> list[dict]:
+    """列出所有已配置的可用音色（edge + 豆包 + azure）。"""
+    return [
+        {"provider": "edge", "id": "zh-CN-XiaoxiaoNeural", "name": "晓晓·女声（免费）"},
+        {"provider": "edge", "id": "zh-CN-YunxiNeural", "name": "云希·男声（免费）"},
+        {"provider": "edge", "id": "zh-CN-YunyangNeural", "name": "云扬·男声（免费）"},
+        {"provider": "edge", "id": "zh-CN-liaoning-XiaobeiNeural", "name": "晓北·东北女声（免费）"},
+        {"provider": "edge", "id": "zh-CN-shaanxi-XiaoniNeural", "name": "晓妮·陕西女声（免费）"},
+        {"provider": "volc_mega", "id": "BV001_streaming", "name": "灿灿·女声（豆包）"},
+        {"provider": "volc_mega", "id": "BV700_streaming", "name": "辉晓·男声（豆包）"},
+        {"provider": "volc_mega", "id": "BV002_streaming", "name": "通用男声（豆包）"},
+        {"provider": "volc_standard", "id": "BV700", "name": "辉晓·男声（豆包普通）"},
+        {"provider": "azure", "id": "zh-CN-XiaoxiaoNeural", "name": "晓晓·女声（Azure）"},
+        {"provider": "azure", "id": "zh-CN-YunxiNeural", "name": "云希·男声（Azure）"},
+    ]

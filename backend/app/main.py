@@ -12,13 +12,16 @@ for _ext, _mime in ((".js", "text/javascript"), (".mjs", "text/javascript"),
                     (".wasm", "application/wasm"), (".map", "application/json")):
     mimetypes.add_type(_mime, _ext)
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
 
 from app.config import settings, DATA_DIR
-from app.database import init_db
+from app.database import init_db, async_session
+from app.core.api_scheduler.client import set_current_user_id
+from app.models import AuthToken, User
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("yuanqi")
@@ -79,6 +82,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def set_user_llm_context(request: Request, call_next):
+    """已登录且配置了自有 API Key 的用户 → 本次请求的 LLM 调用用其适配器（开源免费：用户自理 Key 费用）。"""
+    try:
+        header = request.headers.get("authorization", "")
+        if header.lower().startswith("bearer "):
+            token = header[7:].strip()
+            if token:
+                async with async_session() as db:
+                    row = (await db.execute(
+                        select(AuthToken).where(AuthToken.token == token)
+                    )).scalars().first()
+                    if row:
+                        u = await db.get(User, row.user_id)
+                        if u and u.api_key_encrypted:
+                            set_current_user_id(u.id)
+    except Exception:
+        pass
+    try:
+        return await call_next(request)
+    finally:
+        set_current_user_id("local_user")
+
 from app.api.companion import router as companion_router
 from app.api.documents import router as documents_router
 from app.api.projects import router as projects_router
@@ -91,6 +118,8 @@ from app.api.reading import router as reading_router
 from app.api.podcast import router as podcast_router
 from app.api.community import router as community_router
 from app.api.auth import router as auth_router
+from app.api.profile import router as profile_router
+from app.api.tts import router as tts_router
 
 app.include_router(companion_router)
 app.include_router(documents_router)
@@ -104,6 +133,8 @@ app.include_router(reading_router)
 app.include_router(podcast_router)
 app.include_router(community_router)
 app.include_router(auth_router)
+app.include_router(profile_router)
+app.include_router(tts_router)
 
 
 @app.get("/")

@@ -23,6 +23,10 @@ class User(Base):
     active_plan_id: Mapped[str | None] = mapped_column(String(36), nullable=True)  # 当前生效的学习计划
     username: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)  # 社区登录名（空=本地模式未注册）
     password_hash: Mapped[str] = mapped_column(String(256), default="")  # PBKDF2 哈希
+    wechat_openid: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)  # 微信登录绑定
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)  # 用户自有 LLM Key（fernet 加密）
+    api_base_url: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    api_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     @property

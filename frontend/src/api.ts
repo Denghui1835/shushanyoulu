@@ -30,6 +30,17 @@ export const api = {
   publishProject: (id: string) => http.post(`/community/projects/${id}/publish`).then(r => r.data),
   unpublishProject: (id: string) => http.post(`/community/projects/${id}/unpublish`).then(r => r.data),
   learnProject: (id: string) => http.post(`/community/plaza/${id}/learn`).then(r => r.data),
+
+  // 个人中心
+  getProfileInfo: () => http.get('/profile').then(r => r.data),
+  updateProfileInfo: (data: any) => http.patch('/profile', data).then(r => r.data),
+  getApiKey: () => http.get('/profile/apikey').then(r => r.data),
+  saveApiKey: (data: any) => http.put('/profile/apikey', data).then(r => r.data),
+  deleteApiKey: () => http.delete('/profile/apikey').then(r => r.data),
+  testApiKey: (data: any) => http.post('/profile/apikey/test', data).then(r => r.data),
+  // 微信绑定
+  wechatBind: (code: string) => http.post('/auth/wechat/bind', { code }).then(r => r.data),
+  wechatUnbind: () => http.post('/auth/wechat/unbind').then(r => r.data),
   // companion
   getStatus: () => http.get('/companion/status').then(r => r.data),
   getProfile: () => http.get('/companion/profile').then(r => r.data),

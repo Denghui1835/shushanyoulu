@@ -34,9 +34,15 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 100
     chunk_size_tokens: int = 1500  # target tokens per chunk
 
-    # AI 播客（TTS）
-    # provider: edge（默认，免费免 Key）/ volc（火山引擎/豆包）/ azure / mock（无声占位，纯链路测试用）
-    # edge = 开源 edge-tts 包（rany2/edge-tts），走微软 Edge 在线神经语音，无需注册付费
+    # 微信开放平台 OAuth（小程序/公众号）
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+    # 用户自有 API Key 加密密钥（fernet）；留空则每次启动随机生成（重启后旧 Key 失效）
+    api_key_encrypt_secret: str = ""
+
+    # AI 播客 / 通用 TTS
+    # provider: edge（默认，免费免 Key）/ volc_mega（豆包大模型音色）/ volc_standard（豆包普通音色）/
+    #           azure / mock（无声占位，纯链路测试用）
     tts_provider: str = "edge"
     # --- edge-tts（免费）---
     edge_tts_voice_a: str = "zh-CN-XiaoxiaoNeural"  # 主播A 女声（晓晓）

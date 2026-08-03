@@ -9,6 +9,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="bookshelf" options={{ title: '书架', tabBarIcon: () => <Text>📚</Text> }} />
       <Tabs.Screen name="podcasts" options={{ title: '播客', tabBarIcon: () => <Text>🎙️</Text> }} />
       <Tabs.Screen name="community" options={{ title: '社区', tabBarIcon: () => <Text>🌐</Text> }} />
+      <Tabs.Screen name="profile" options={{ title: '我的', tabBarIcon: () => <Text>👤</Text> }} />
     </Tabs>
   )
 }

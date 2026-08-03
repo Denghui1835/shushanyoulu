@@ -40,6 +40,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 const get = <T>(path: string) => req<T>('GET', path)
 const post = <T>(path: string, body?: unknown) => req<T>('POST', path, body)
 const put = <T>(path: string, body?: unknown) => req<T>('PUT', path, body)
+const patch = <T>(path: string, body?: unknown) => req<T>('PATCH', path, body)
 const del = <T>(path: string) => req<T>('DELETE', path)
 
 async function upload<T>(path: string, form: FormData): Promise<T> {
@@ -182,6 +183,15 @@ export const api = {
   publishProject: (id: string) => post<any>(`/api/community/projects/${id}/publish`),
   unpublishProject: (id: string) => post<any>(`/api/community/projects/${id}/unpublish`),
   learnProject: (id: string) => post<any>(`/api/community/plaza/${id}/learn`),
+
+  // 个人中心
+  getProfileInfo: () => get<any>('/api/profile'),
+  updateProfileInfo: (data: any) => patch<any>('/api/profile', data),
+  getApiKey: () => get<any>('/api/profile/apikey'),
+  saveApiKey: (data: any) => put<any>('/api/profile/apikey', data),
+  deleteApiKey: () => del<any>('/api/profile/apikey'),
+  testApiKey: (data: any) => post<any>('/api/profile/apikey/test', data),
+  wechatUnbind: () => post<any>('/api/auth/wechat/unbind'),
 }
 
 export { streamSSE }

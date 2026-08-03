@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.core.auth import get_current_user, hash_password, verify_password, issue_token, revoke_token, _extract_token
+from app.core.wechat_auth import get_wechat_user_info
 from app.models import User, Project
 
 logger = logging.getLogger("yuanqi.api.auth")
@@ -83,6 +84,55 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     if token:
         await revoke_token(db, token)
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- 微信登录 / 绑定
+
+class WechatLoginIn(BaseModel):
+    code: str
+
+
+@router.post("/wechat/login")
+async def wechat_login(data: WechatLoginIn, db: AsyncSession = Depends(get_db)):
+    """微信登录：code → openid → 已有账号则登录，否则自动创建。"""
+    try:
+        info = await get_wechat_user_info(data.code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    openid = info["openid"]
+    u = (await db.execute(select(User).where(User.wechat_openid == openid))).scalars().first()
+    is_new = u is None
+    if u is None:
+        u = User(wechat_openid=openid, name="微信用户", username=None)
+        db.add(u)
+        await db.commit()
+        await db.refresh(u)
+    token = await issue_token(db, u)
+    return {"token": token, "user": _serialize_user(u), "is_new": is_new}
+
+
+@router.post("/wechat/bind")
+async def wechat_bind(data: WechatLoginIn, user: User = Depends(get_current_user),
+                      db: AsyncSession = Depends(get_db)):
+    """已登录用户绑定微信。"""
+    try:
+        info = await get_wechat_user_info(data.code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    openid = info["openid"]
+    other = (await db.execute(select(User).where(User.wechat_openid == openid))).scalars().first()
+    if other and other.id != user.id:
+        raise HTTPException(status_code=400, detail="该微信已绑定其他账号")
+    user.wechat_openid = openid
+    await db.commit()
+    return {"ok": True, "wechat_bound": True}
+
+
+@router.post("/wechat/unbind")
+async def wechat_unbind(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    user.wechat_openid = None
+    await db.commit()
+    return {"ok": True, "wechat_bound": False}
 
 
 @router.get("/me")

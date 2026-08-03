@@ -7,12 +7,12 @@ from app.models.content import (
 )
 from app.models.chat import ChatSession, ChatMessage, StudyLog
 from app.models.cache import APICache, APIQuota, APICallLog
-from app.models.reading import Annotation, DocSummary, PodcastScript, BlankCache
+from app.models.reading import Annotation, DocSummary, PodcastScript, BlankCache, Drawing
 
 __all__ = [
     "User", "AuthToken", "Project", "LearningPlan", "PlanTask", "CheckIn",
     "Document", "Chunk", "KnowledgePoint", "Question", "QuizRecord", "Flashcard",
     "ChatSession", "ChatMessage", "StudyLog",
     "APICache", "APIQuota", "APICallLog",
-    "Annotation", "DocSummary", "PodcastScript", "BlankCache",
+    "Annotation", "DocSummary", "PodcastScript", "BlankCache", "Drawing",
 ]

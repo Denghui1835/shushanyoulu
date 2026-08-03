@@ -1,4 +1,6 @@
-"""阅读功能 API：阅读单元内容、批注 CRUD、总结生成与查询."""
+"""阅读功能 API：阅读单元内容、批注 CRUD、总结生成与查询、PDF 自由绘制."""
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -8,7 +10,7 @@ from app.database import get_db
 from app.core.reading_content import get_reading_units
 from app.core.summarize import generate_summary
 from app.core.blank import get_blank_content
-from app.models import Document, Annotation, DocSummary
+from app.models import Document, Annotation, DocSummary, Drawing
 
 router = APIRouter(prefix="/api/reading", tags=["reading"])
 
@@ -53,6 +55,67 @@ async def blank_content(document_id: str, unit_index: int = 0, db: AsyncSession 
         logger.exception("挖空内容生成失败 doc=%s unit=%s", document_id, unit_index)
         raise HTTPException(status_code=500, detail=f"生成失败：{str(e)[:200]}")
     return data
+
+
+# ---------------------------------------------------------------- PDF 自由绘制批注
+
+class DrawingIn(BaseModel):
+    strokes: list = []   # 每项 {id,tool,color,size,points:[{x,y}]}，坐标 0-1 归一化
+
+
+def _serialize_drawing(d: Drawing) -> dict:
+    try:
+        strokes = json.loads(d.strokes or "[]")
+    except Exception:
+        strokes = []
+    return {"id": d.id, "unit_index": d.unit_index, "strokes": strokes,
+            "updated_at": d.updated_at.isoformat()}
+
+
+@router.get("/{document_id}/drawings")
+async def list_drawings(document_id: str, db: AsyncSession = Depends(get_db)):
+    """全部页的绘制批注（与文本批注共存）。"""
+    await _get_doc(db, document_id)
+    rows = (await db.execute(
+        select(Drawing).where(Drawing.document_id == document_id).order_by(Drawing.unit_index)
+    )).scalars().all()
+    return {"count": len(rows), "items": [_serialize_drawing(d) for d in rows]}
+
+
+@router.post("/{document_id}/drawings/{unit_index}")
+async def save_drawings(document_id: str, unit_index: int, data: DrawingIn,
+                        db: AsyncSession = Depends(get_db)):
+    """保存某页的笔迹（整体覆盖，幂等）。"""
+    await _get_doc(db, document_id)
+    row = (await db.execute(
+        select(Drawing).where(Drawing.document_id == document_id,
+                              Drawing.unit_index == unit_index)
+    )).scalars().first()
+    strokes = json.dumps(data.strokes or [], ensure_ascii=False)
+    if row:
+        row.strokes = strokes
+    else:
+        db.add(Drawing(document_id=document_id, unit_index=unit_index, strokes=strokes))
+    await db.commit()
+    saved = (await db.execute(
+        select(Drawing).where(Drawing.document_id == document_id,
+                              Drawing.unit_index == unit_index)
+    )).scalars().first()
+    return _serialize_drawing(saved)
+
+
+@router.delete("/{document_id}/drawings/{unit_index}")
+async def clear_drawings(document_id: str, unit_index: int, db: AsyncSession = Depends(get_db)):
+    """清空某页笔迹。"""
+    await _get_doc(db, document_id)
+    row = (await db.execute(
+        select(Drawing).where(Drawing.document_id == document_id,
+                              Drawing.unit_index == unit_index)
+    )).scalars().first()
+    if row:
+        await db.delete(row)
+        await db.commit()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- 批注

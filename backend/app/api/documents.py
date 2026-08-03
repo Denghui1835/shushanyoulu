@@ -14,7 +14,7 @@ from app.database import get_db, ensure_default_project
 from app.core.parsing import parse_file, chunk_text, estimate_tokens
 from app.models import (
     Document, Chunk, User, KnowledgePoint, Question, Flashcard,
-    Annotation, DocSummary, QuizRecord, Project, PodcastScript,
+    Annotation, DocSummary, QuizRecord, Project, PodcastScript, Drawing, BlankCache,
 )
 
 logger = logging.getLogger("yuanqi.api.documents")
@@ -240,6 +240,9 @@ async def delete_document_cascade(db: AsyncSession, doc_id: str) -> None:
     for pp in pod_paths:
         Path(pp).unlink(missing_ok=True)
     await db.execute(delete(PodcastScript).where(PodcastScript.document_id == doc_id))
+    # 绘制批注（Drawing）、挖空缓存（BlankCache）
+    await db.execute(delete(Drawing).where(Drawing.document_id == doc_id))
+    await db.execute(delete(BlankCache).where(BlankCache.document_id == doc_id))
     doc = await db.get(Document, doc_id)
     if doc:
         # 分组/空白章节没有文件（file_path 为空），跳过 unlink

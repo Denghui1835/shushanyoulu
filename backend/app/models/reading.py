@@ -83,3 +83,20 @@ class BlankCache(Base):
     unit_index: Mapped[int] = mapped_column(Integer, default=0)
     keywords: Mapped[str] = mapped_column(Text, default="[]")  # JSON 数组
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class Drawing(Base):
+    """PDF 自由绘制批注：某 PDF 页（unit_index）上的笔迹图层。
+
+    与文本批注(Annotation)独立共存。strokes 为 JSON 数组，每项：
+      {"id","tool":"pen|highlighter","color","size","points":[{"x","y"}]}
+    坐标 x/y 已归一化到 [0,1]（相对页面宽高），缩放时按显示尺寸换算，保证不变形。
+    笔迹作为独立图层叠加，不修改原始 PDF。
+    """
+    __tablename__ = "drawings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    document_id: Mapped[str] = mapped_column(String(36), ForeignKey("documents.id"), index=True)
+    unit_index: Mapped[int] = mapped_column(Integer, default=0)  # PDF 物理页
+    strokes: Mapped[str] = mapped_column(Text, default="[]")    # JSON 数组
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)

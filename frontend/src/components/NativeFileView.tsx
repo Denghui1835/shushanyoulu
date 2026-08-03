@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, InputNumber, Segmented, Spin, Space, Tooltip } from 'antd'
-import { ZoomInOutlined, ZoomOutOutlined, LeftOutlined, RightOutlined, ColumnWidthOutlined } from '@ant-design/icons'
+import { ZoomInOutlined, ZoomOutOutlined, LeftOutlined, RightOutlined, ColumnWidthOutlined, EditOutlined } from '@ant-design/icons'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import ReactMarkdown from 'react-markdown'
 import { api } from '../api'
+import DrawingOverlay from './DrawingOverlay'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
 
@@ -37,6 +38,8 @@ export default function NativeFileView({ docId, contentType, full }: Props) {
   const [mode, setMode] = useState<'single' | 'scroll'>(() =>
     localStorage.getItem('pdfReadingMode') === 'scroll' ? 'scroll' : 'single',
   )
+  // 自由绘制批注模式（仅单页翻页可用；连续滚动暂不叠加）
+  const [drawing, setDrawing] = useState(false)
   // 连续滚动用：每页包装元素引用 + 滚动节流，用于页码跳转与当前页跟踪
   const pageWrapsRef = useRef<Map<number, HTMLDivElement>>(new Map())
   const scrollRafRef = useRef(0)
@@ -220,6 +223,12 @@ export default function NativeFileView({ docId, contentType, full }: Props) {
               onChange={v => setMode(v as 'single' | 'scroll')}
               options={[{ value: 'single', label: '单页翻页' }, { value: 'scroll', label: '连续滚动' }]}
             />
+            {mode === 'single' && (
+              <Tooltip title={drawing ? '退出绘制' : '在页面上自由绘制（笔迹随文档保存）'}>
+                <Button size="small" type={drawing ? 'primary' : 'default'} icon={<EditOutlined />}
+                  onClick={() => setDrawing(d => !d)}>绘制</Button>
+              </Tooltip>
+            )}
           </>
         ) : (
           <span style={{ color: '#999', fontSize: 13 }}>
@@ -261,7 +270,10 @@ export default function NativeFileView({ docId, contentType, full }: Props) {
                 loading={<Spin style={{ display: 'block', margin: 60 }} />}
                 onLoadError={e => console.error('PDF 加载失败', e)}
               >
-                <Page pageNumber={page} scale={scale} onLoadSuccess={onPageLoad} />
+                <div style={{ position: 'relative' }}>
+                  <Page pageNumber={page} scale={scale} onLoadSuccess={onPageLoad} />
+                  <DrawingOverlay docId={docId} unitIndex={page - 1} enabled={drawing} />
+                </div>
               </Document>
             </div>
           )

@@ -164,6 +164,12 @@ export const api = {
   // 关键词挖空背诵
   getBlankContent: (docId: string, unitIndex: number) =>
     http.get(`/reading/${docId}/blank`, { params: { unit_index: unitIndex } }).then(r => r.data),
+  // PDF 自由绘制批注
+  listDrawings: (docId: string) => http.get(`/reading/${docId}/drawings`).then(r => r.data),
+  saveDrawings: (docId: string, unitIndex: number, strokes: any[]) =>
+    http.post(`/reading/${docId}/drawings/${unitIndex}`, { strokes }).then(r => r.data),
+  clearDrawings: (docId: string, unitIndex: number) =>
+    http.delete(`/reading/${docId}/drawings/${unitIndex}`).then(r => r.data),
 
   // AI 播客（每阅读单元独立一条）：文稿生成/查询、音频生成/试听
   getPodcastScript: (docId: string, unitIndex: number) =>

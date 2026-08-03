@@ -149,4 +149,6 @@ if DIST_DIR:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=settings.debug)
+    # 0.0.0.0 = 允许局域网/手机访问（移动端连接后端必需）；如只想本机访问可设 host=127.0.0.1
+    host = os.environ.get("YQ_HOST", "0.0.0.0")
+    uvicorn.run("app.main:app", host=host, port=8000, reload=settings.debug)

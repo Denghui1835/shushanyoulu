@@ -100,7 +100,7 @@ echo 正在启动...
 echo   后端 -> http://localhost:8000/docs
 echo   前端 -> http://localhost:5173
 echo.
-start "YuanQi-Backend" /D "%~dp0backend" cmd /k python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app
+start "YuanQi-Backend" /D "%~dp0backend" cmd /k python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
 start "YuanQi-Frontend" /D "%~dp0frontend" cmd /k npm run dev
 
 start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$ok=$false; for ($i=0; $i -lt 60; $i++) { try { $c = New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1', 5173); $c.Close(); $ok=$true; break } catch { Start-Sleep 1 } }; if ($ok) { Start-Process 'http://localhost:5173' }"

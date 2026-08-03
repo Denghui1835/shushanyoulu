@@ -59,4 +59,6 @@ if __name__ == "__main__":
     from app.main import app
 
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    # 打包版默认只本机访问（安全）；如需局域网/手机连接，设环境变量 YQ_HOST=0.0.0.0
+    host = os.environ.get("YQ_HOST", "127.0.0.1")
+    uvicorn.run(app, host=host, port=port, log_level="info")

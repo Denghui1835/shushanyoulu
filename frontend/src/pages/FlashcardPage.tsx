@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Tag, message, Empty, Space, Select, Segmented, Popconfirm } from 'antd'
-import { ThunderboltOutlined, ReloadOutlined, DeleteOutlined, UndoOutlined } from '@ant-design/icons'
+import { ThunderboltOutlined, ReloadOutlined, DeleteOutlined, UndoOutlined, SoundOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { useTTSPlay } from '../hooks/useTTSPlay'
 
 type Filter = 'due' | 'all' | 'discarded'
 
@@ -16,6 +17,7 @@ export default function FlashcardPage() {
   const [reviewed, setReviewed] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [params] = useSearchParams()
+  const tts = useTTSPlay()
 
   const loadDocs = async () => {
     const d = await api.listDocuments()
@@ -180,6 +182,15 @@ export default function FlashcardPage() {
           </Card>
           <div style={{ textAlign: 'center', color: '#999', fontSize: 12, marginTop: 8 }}>
             点击卡片翻转{flipped ? '' : '，回忆答案后再翻'}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 8 }}>
+            <Button size="small" icon={<SoundOutlined />} loading={tts.busy}
+              onClick={() => {
+                if (tts.playing) { tts.stop(); return }
+                tts.play(flipped ? card.back : card.front).catch(() => {})
+              }}>
+              {tts.playing ? '停止朗读' : '朗读'}
+            </Button>
           </div>
 
           {flipped && (

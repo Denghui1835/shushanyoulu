@@ -3,7 +3,7 @@ import {
   Select, Button, Space, Switch, Tabs, Modal, Input, message, Spin, Tag, Tooltip, Segmented, Empty,
 } from 'antd'
 import {
-  LeftOutlined, RightOutlined, SoundOutlined, ReadOutlined, BookOutlined,
+  LeftOutlined, RightOutlined, SoundOutlined, ReadOutlined, BookOutlined, PlayCircleOutlined, PauseCircleOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -14,6 +14,7 @@ import SummaryPanel, { type SummaryItem } from '../components/SummaryPanel'
 import PodcastPanel from '../components/PodcastPanel'
 import BlankView from '../components/BlankView'
 import DrawingOverlay from '../components/DrawingOverlay'
+import { useTTSPlay } from '../hooks/useTTSPlay'
 
 interface Unit {
   index: number
@@ -56,6 +57,8 @@ export default function ReadingPage() {
   const [viewMode, setViewMode] = useState<'native' | 'text' | 'blank'>('native')
   // 自由绘制模式（由百宝箱「绘制工具」控制）：PDF 在原文件视图，非 PDF 在文本视图
   const [drawing, setDrawing] = useState(false)
+  // 听书：TTS 朗读本页
+  const tts = useTTSPlay()
 
   const curUnit = units[cur]
   const currentContentType = docs.find((d: any) => d.id === docId)?.content_type || 'pdf'
@@ -238,6 +241,15 @@ export default function ReadingPage() {
         <Tooltip title="AI 播客：按当前章节生成双主播对谈音频">
           <Button type="primary" ghost icon={<SoundOutlined />} onClick={onOpenPodcast}>
             AI 播客
+          </Button>
+        </Tooltip>
+        <Tooltip title="TTS 朗读本页（听书）">
+          <Button icon={tts.playing ? <PauseCircleOutlined /> : <PlayCircleOutlined />} loading={tts.busy}
+            onClick={() => {
+              if (tts.playing) { tts.stop(); return }
+              if (curUnit?.text) tts.play(curUnit.text).catch(() => {})
+            }}>
+            {tts.playing ? '停止朗读' : '朗读本页'}
           </Button>
         </Tooltip>
         <Segmented

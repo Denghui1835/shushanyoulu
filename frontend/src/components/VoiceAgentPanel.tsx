@@ -3,9 +3,10 @@ import {
   Button, Input, Space, Tag, message, Tooltip,
 } from 'antd'
 import {
-  AudioOutlined, AudioMutedOutlined, SendOutlined, CheckOutlined, CloseOutlined,
+  AudioOutlined, AudioMutedOutlined, SendOutlined, CheckOutlined, CloseOutlined, SoundOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
+import { useTTSPlay } from '../hooks/useTTSPlay'
 
 interface Msg { role: 'user' | 'assistant'; content: string }
 
@@ -49,6 +50,7 @@ export default function VoiceAgentPanel({ projectId, onApplied }: Props) {
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const recRef = useRef<any>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const tts = useTTSPlay()
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
@@ -140,6 +142,12 @@ export default function VoiceAgentPanel({ projectId, onApplied }: Props) {
             }}
           >
             {m.content}
+            {m.role === 'assistant' && m.content && (
+              <Tooltip title="朗读回复">
+                <Button size="small" type="text" icon={<SoundOutlined />} loading={tts.busy}
+                  onClick={() => { if (tts.playing) { tts.stop(); return } tts.play(m.content).catch(() => {}) }} />
+              </Tooltip>
+            )}
           </div>
         ))}
         {busy && <div style={{ color: '#999', fontSize: 13 }}>思考中…</div>}

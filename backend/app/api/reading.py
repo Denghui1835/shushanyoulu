@@ -26,10 +26,15 @@ async def _get_doc(db: AsyncSession, document_id: str) -> Document:
 async def get_content(document_id: str, db: AsyncSession = Depends(get_db)):
     doc = await _get_doc(db, document_id)
     units = await get_reading_units(db, doc)
+    # 按书配置：是否开启「关键词挖空」
+    from app.models import Project
+    project = await db.get(Project, doc.project_id) if doc.project_id else None
+    blank_enabled = bool(project.blank_enabled) if project else False
     return {
         "document_id": doc.id,
         "title": doc.title,
         "content_type": doc.content_type,
+        "blank_enabled": blank_enabled,
         "units": units,
     }
 

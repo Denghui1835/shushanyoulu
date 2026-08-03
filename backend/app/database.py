@@ -86,6 +86,7 @@ _COLUMN_MIGRATIONS = {
     ],
     "projects": [
         ("is_public", "ALTER TABLE projects ADD COLUMN is_public BOOLEAN DEFAULT 0"),
+        ("blank_enabled", "ALTER TABLE projects ADD COLUMN blank_enabled BOOLEAN DEFAULT 0"),
     ],
 }
 

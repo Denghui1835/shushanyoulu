@@ -48,12 +48,14 @@ class ProjectIn(BaseModel):
     title: str
     description: str = ""
     icon: str = "📚"
+    blank_enabled: bool = False  # 按书配置：是否开启「关键词挖空」
 
 
 class ProjectUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     icon: str | None = None
+    blank_enabled: bool | None = None
 
 
 class ReorderIn(BaseModel):
@@ -71,6 +73,7 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
     return [{
         "id": p.id, "title": p.title, "description": p.description, "icon": p.icon,
         "document_count": int(counts.get(p.id, 0)),
+        "blank_enabled": bool(p.blank_enabled),
         "created_at": p.created_at.isoformat(),
     } for p in projects]
 
@@ -81,12 +84,14 @@ async def create_project(data: ProjectIn, db: AsyncSession = Depends(get_db)):
     if not title:
         raise HTTPException(status_code=400, detail="项目名称不能为空")
     p = Project(user_id=LOCAL_USER_ID, title=title,
-                description=data.description or "", icon=data.icon or "📚")
+                description=data.description or "", icon=data.icon or "📚",
+                blank_enabled=data.blank_enabled)
     db.add(p)
     await db.commit()
     await db.refresh(p)
     return {"id": p.id, "title": p.title, "description": p.description,
-            "icon": p.icon, "document_count": 0, "created_at": p.created_at.isoformat()}
+            "icon": p.icon, "blank_enabled": bool(p.blank_enabled),
+            "document_count": 0, "created_at": p.created_at.isoformat()}
 
 
 @router.get("/export/{project_id}")
@@ -162,7 +167,8 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
 
     return {
         "project": {"id": p.id, "title": p.title, "description": p.description,
-                    "icon": p.icon, "created_at": p.created_at.isoformat(),
+                    "icon": p.icon, "blank_enabled": bool(p.blank_enabled),
+                    "created_at": p.created_at.isoformat(),
                     "book_total_pages": book_total,
                     "books": books},
         "documents": [_serialize_doc(d, counts.get(d.id, {}), ref_by_path.get(d.book_file_path)) for d in docs],
@@ -182,10 +188,13 @@ async def update_project(project_id: str, data: ProjectUpdate, db: AsyncSession 
         p.description = data.description
     if data.icon is not None:
         p.icon = data.icon
+    if data.blank_enabled is not None:
+        p.blank_enabled = data.blank_enabled
     await db.commit()
     await db.refresh(p)
     return {"id": p.id, "title": p.title, "description": p.description,
-            "icon": p.icon, "created_at": p.created_at.isoformat()}
+            "icon": p.icon, "blank_enabled": bool(p.blank_enabled),
+            "created_at": p.created_at.isoformat()}
 
 
 @router.delete("/{project_id}")

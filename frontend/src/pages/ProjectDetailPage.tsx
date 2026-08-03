@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Button, Modal, Form, Input, InputNumber, Upload, Progress, message, Popconfirm,
-  Empty, Spin, Space, Tag, Tooltip, List, Select, Segmented, Checkbox,
+  Empty, Spin, Space, Tag, Tooltip, List, Select, Segmented, Checkbox, Switch,
 } from 'antd'
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import {
@@ -694,6 +694,10 @@ export default function ProjectDetailPage() {
           </Form.Item>
           <Form.Item name="icon" label="封面图标">
             <Input maxLength={8} />
+          </Form.Item>
+          <Form.Item name="blank_enabled" label="关键词挖空背诵" valuePropName="checked"
+            tooltip="开启后，阅读页会多出「挖空」视图，把关键词藏起来死记硬背">
+            <Switch checkedChildren="开启" unCheckedChildren="关闭" />
           </Form.Item>
         </Form>
       </Modal>

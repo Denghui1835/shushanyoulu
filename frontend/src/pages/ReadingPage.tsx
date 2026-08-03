@@ -30,6 +30,7 @@ export default function ReadingPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [cur, setCur] = useState(0)
   const [loadingContent, setLoadingContent] = useState(false)
+  const [blankEnabled, setBlankEnabled] = useState(false)  // 按书配置：是否开启「关键词挖空」
 
   // 批注
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -83,6 +84,7 @@ export default function ReadingPage() {
         api.listSummaries(docId),
       ])
       setUnits(content.units)
+      setBlankEnabled(!!content.blank_enabled)
       setAnnotations(anns)
       const map: Record<string, SummaryItem> = {}
       for (const s of sums) map[summaryKey(s.scope, s.unit_index ?? undefined)] = s
@@ -235,7 +237,7 @@ export default function ReadingPage() {
           options={[
             { value: 'native', label: '原文件' },
             { value: 'text', label: '文本' },
-            { value: 'blank', label: '挖空' },
+            ...(blankEnabled ? [{ value: 'blank' as const, label: '挖空' }] : []),
           ]}
           size="small"
         />

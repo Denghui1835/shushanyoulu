@@ -77,6 +77,7 @@ export default function DrawingOverlay({ docId, unitIndex, enabled, onClose }: P
 
   const onDown = (e: React.PointerEvent) => {
     if (!enabled) return
+    if (e.button !== 0) return   // 只响应左键(0)；右键(2)/中键(1)不绘制
     e.preventDefault()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     drawing.current = true
@@ -144,22 +145,24 @@ export default function DrawingOverlay({ docId, unitIndex, enabled, onClose }: P
           userSelect: 'none', zIndex: 5,
         }}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+        onContextMenu={(e) => e.preventDefault()}   // 阻止默认右键菜单，避免抢走焦点打断绘制
       >
         <svg width={sizeW} height={sizeH} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {strokes.map(s => (
             <path key={s.id} d={pathD(s)} fill="none"
               stroke={s.color}
-              strokeWidth={s.tool === 'highlighter' ? s.size * 6 : s.size}
+              strokeWidth={s.tool === 'highlighter' ? s.size * 8 : s.size}
               strokeLinecap="round" strokeLinejoin="round"
-              opacity={s.tool === 'highlighter' ? 0.45 : 1}
+              opacity={s.tool === 'highlighter' ? 0.55 : 1}
               style={s.tool === 'highlighter' ? { mixBlendMode: 'multiply' } : undefined} />
           ))}
           {current && (
             <path d={pathD(current)} fill="none"
               stroke={eraser ? 'rgba(255,255,255,0.6)' : current.color}
-              strokeWidth={(current.tool === 'highlighter' ? current.size * 6 : current.size)}
+              strokeWidth={(current.tool === 'highlighter' ? current.size * 8 : current.size)}
               strokeLinecap="round" strokeLinejoin="round"
-              opacity={current.tool === 'highlighter' ? 0.45 : 1} />
+              opacity={current.tool === 'highlighter' ? 0.55 : 1}
+              style={current.tool === 'highlighter' ? { mixBlendMode: 'multiply' } : undefined} />
           )}
         </svg>
       </div>

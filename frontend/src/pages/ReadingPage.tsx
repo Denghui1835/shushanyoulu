@@ -4,7 +4,6 @@ import {
 } from 'antd'
 import {
   LeftOutlined, RightOutlined, SoundOutlined, ReadOutlined, BookOutlined,
-  FileTextOutlined, EditFilled, ThunderboltFilled,
 } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -345,24 +344,23 @@ export default function ReadingPage() {
           <div className="yq-baibao-panel">
             <div className="yq-baibao-header">
               <b>🧰 百宝箱</b>
-              <Button size="small" type="text" onClick={() => setBaibaoOpen(false)}>收起 ✕</Button>
+              <span className="yq-baibao-close" onClick={() => setBaibaoOpen(false)} title="收起">✕</span>
             </div>
-            <div className="yq-baibao-entries">
-              <Button icon={<BookOutlined />} onClick={() => {
+            <div className="yq-baibao-grid">
+              <div className="yq-baibao-tile" onClick={() => {
                 if (viewMode !== 'text') { setViewMode('text'); message.info('批注请在「文本」视图进行') }
                 setSidebarTab('ann')
-              }}>批注工具</Button>
-              <Button icon={<EditFilled />} onClick={() => {
-                // PDF 用原文件视图绘制；PPT/MD/DOCX/TXT 用文本视图绘制
+              }}><span className="tile-icon">💬</span><span className="tile-label">批注</span></div>
+              <div className="yq-baibao-tile" onClick={() => {
                 const target = currentContentType === 'pdf' ? 'native' : 'text'
                 if (viewMode !== target) setViewMode(target)
                 setDrawing(d => !d)
-              }}>绘制工具</Button>
-              <Button icon={<SoundOutlined />} onClick={onOpenPodcast}>AI 播客</Button>
-              <Button icon={<SoundOutlined />} onClick={onGenerateStory}>章节总结 · 听书式</Button>
-              <Button icon={<FileTextOutlined />} onClick={onGenerateConcept}>概念总结</Button>
-              <Button icon={<EditFilled />} onClick={() => navigate(`/quiz?doc=${docId}`)}>练习题</Button>
-              <Button icon={<ThunderboltFilled />} onClick={() => navigate(`/flashcards?doc=${docId}`)}>闪卡</Button>
+              }}><span className="tile-icon">✏️</span><span className="tile-label">绘制</span></div>
+              <div className="yq-baibao-tile" onClick={onOpenPodcast}><span className="tile-icon">🎙️</span><span className="tile-label">AI 播客</span></div>
+              <div className="yq-baibao-tile" onClick={onGenerateStory}><span className="tile-icon">📖</span><span className="tile-label">章节总结</span></div>
+              <div className="yq-baibao-tile" onClick={onGenerateConcept}><span className="tile-icon">🧠</span><span className="tile-label">概念总结</span></div>
+              <div className="yq-baibao-tile" onClick={() => navigate(`/quiz?doc=${docId}`)}><span className="tile-icon">✅</span><span className="tile-label">练习题</span></div>
+              <div className="yq-baibao-tile" onClick={() => navigate(`/flashcards?doc=${docId}`)}><span className="tile-icon">🃏</span><span className="tile-label">闪卡</span></div>
             </div>
           </div>
         )}

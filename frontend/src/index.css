@@ -284,34 +284,76 @@ body {
   z-index: 90;
 }
 .yq-baibao-fab {
-  width: 52px !important;
-  height: 52px !important;
-  font-size: 22px !important;
-  box-shadow: 0 6px 20px rgba(124, 92, 252, 0.35);
+  width: 56px !important;
+  height: 56px !important;
+  font-size: 24px !important;
+  border: none !important;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 24px rgba(124, 92, 252, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.yq-baibao-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 10px 30px rgba(124, 92, 252, 0.55);
 }
 .yq-baibao-panel {
-  width: 280px;
+  width: 300px;
   background: #fff;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid #ece6ff;
-  box-shadow: 0 10px 34px rgba(124, 92, 252, 0.2);
-  padding: 14px;
+  box-shadow: 0 12px 40px rgba(124, 92, 252, 0.25);
+  padding: 16px;
+  animation: baibao-in 0.18s ease;
+}
+@keyframes baibao-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 .yq-baibao-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  font-size: 15px;
   margin-bottom: 12px;
 }
-.yq-baibao-entries {
-  display: flex;
-  flex-direction: column;
+.yq-baibao-close {
+  cursor: pointer;
+  color: #999;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.yq-baibao-close:hover { background: #f2f2f6; color: #333; }
+.yq-baibao-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-.yq-baibao-entries .ant-btn {
-  text-align: left;
-  justify-content: flex-start;
+.yq-baibao-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 6px 11px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid #f0edff;
+  background: #faf9ff;
+  transition: all 0.15s;
+  user-select: none;
 }
+.yq-baibao-tile:hover {
+  background: #f4f0ff;
+  border-color: #d8ccff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 92, 252, 0.12);
+}
+.yq-baibao-tile:active { transform: translateY(0); }
+.yq-baibao-tile .tile-icon { font-size: 22px; line-height: 1; }
+.yq-baibao-tile .tile-label { font-size: 12px; color: #555; }
 
 /* 标题层级占位框（占位用，无交互）：H1/H2/H3 按 字号 + 边框粗细 双维度单调区分 */
 .title-box-h1,.title-box-h2,.title-box-h3{

@@ -17,7 +17,7 @@ class ChatSession(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(String(36), index=True)
-    title: Mapped[str] = mapped_column(String(128), default="与书山有路的对话")
+    title: Mapped[str] = mapped_column(String(128), default="与小书虫的对话")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

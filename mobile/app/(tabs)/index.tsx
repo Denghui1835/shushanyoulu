@@ -33,7 +33,7 @@ export default function CompanionScreen() {
       setSessionId(s.id)
       const msgs = await api.getMessages(s.id)
       if (msgs.length === 0) {
-        setMessages([{ id: 'greeting', role: 'assistant', content: '你好呀！我是书山有路 ⚡ 我会陪你一起学习。先聊聊你的学习目标吧，我会主动提醒你该做什么。' }])
+        setMessages([{ id: 'greeting', role: 'assistant', content: '你好呀！我是小书虫 ⚡ 我会陪你一起学习。先聊聊你的学习目标吧，我会主动提醒你该做什么。' }])
       } else {
         setMessages(msgs.map((m: any) => ({ id: m.id, role: m.role, content: m.content })))
       }
@@ -72,7 +72,7 @@ export default function CompanionScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Appbar.Header>
-        <Appbar.Content title="书山有路" subtitle={status?.user?.goal || '先聊聊你的学习目标'} />
+        <Appbar.Content title="小书虫" subtitle={status?.user?.goal || '先聊聊你的学习目标'} />
         <Chip icon="fire" style={{ marginRight: 8 }} onPress={doCheckin}>
           🔥{checkin?.streak ?? 0}天 {status?.points ?? 0}分
         </Chip>
@@ -117,7 +117,7 @@ export default function CompanionScreen() {
         <View style={styles.inputRow}>
           <RNInput
             style={styles.input}
-            placeholder="告诉书山有路你想学什么…"
+            placeholder="告诉小书虫你想学什么…"
             value={input}
             onChangeText={setInput}
             onSubmitEditing={send}

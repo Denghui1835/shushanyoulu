@@ -66,7 +66,7 @@ async def get_or_create_session(db: AsyncSession = Depends(get_db)):
         select(ChatSession).where(ChatSession.user_id == user.id).order_by(ChatSession.updated_at.desc())
     )).scalars().first()
     if session is None:
-        session = ChatSession(user_id=user.id, title="与书山有路的对话")
+        session = ChatSession(user_id=user.id, title="与小书虫的对话")
         db.add(session)
         await db.commit()
         await db.refresh(session)

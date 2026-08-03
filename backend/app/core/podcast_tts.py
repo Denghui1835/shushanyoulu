@@ -318,6 +318,9 @@ async def synthesize_text(text: str, voice: str | None = None,
         rate = f"+{int((speed - 1) * 100)}%" if speed >= 1 else f"{int((speed - 1) * 100)}%"
         return await _edge_synthesize(text, voice or settings.edge_tts_voice_a, rate=rate)
     if p in ("volc", "volc_mega", "volc_standard"):
+        if not settings.volc_app_id or not settings.volc_access_token:
+            raise TTSNotConfiguredError(
+                "未配置火山引擎/豆包 TTS：请在 backend/.env 填 VOLC_APP_ID / VOLC_ACCESS_TOKEN")
         v = voice or settings.volc_tts_voice_a
         cluster = _volc_cluster_for("volc_mega" if p == "volc" else p)
         return await _volc_synthesize(text, v, cluster=cluster)

@@ -54,9 +54,13 @@ export default function ReadingPage() {
 
   // 阅读视图：原文件（原生渲染） / 文本（可批注） / 挖空（关键词背诵）
   const [viewMode, setViewMode] = useState<'native' | 'text' | 'blank'>('native')
-  // PDF 自由绘制模式（由百宝箱「绘制工具」控制，仅原文件视图生效）
+  // 自由绘制模式（由百宝箱「绘制工具」控制）：PDF 在原文件视图，非 PDF 在文本视图
   const [drawing, setDrawing] = useState(false)
-  useEffect(() => { if (viewMode !== 'native') setDrawing(false) }, [viewMode])
+  useEffect(() => {
+    const ok = (currentContentType === 'pdf' && viewMode === 'native')
+      || (currentContentType !== 'pdf' && viewMode === 'text')
+    if (!ok) setDrawing(false)
+  }, [viewMode, currentContentType])
 
   const curUnit = units[cur]
   const currentContentType = docs.find((d: any) => d.id === docId)?.content_type || 'pdf'
@@ -261,11 +265,18 @@ export default function ReadingPage() {
           ) : (
             <>
               <h3 style={{ marginTop: 0 }}>{curUnit.title}</h3>
-              <ReadingUnit
-                text={displayText}
-                highlightRanges={highlightRanges}
-                onSelect={onSelectText}
-              />
+              <div style={{ position: 'relative' }}>
+                <ReadingUnit
+                  text={displayText}
+                  highlightRanges={highlightRanges}
+                  onSelect={onSelectText}
+                />
+                {/* 非 PDF（PPT/MD/DOCX/TXT）：在文本视图上按阅读单元叠加绘制层 */}
+                {currentContentType !== 'pdf' && (
+                  <DrawingOverlay docId={docId} unitIndex={cur} enabled={drawing}
+                    onClose={() => setDrawing(false)} />
+                )}
+              </div>
             </>
           )}
         </div>
@@ -339,7 +350,9 @@ export default function ReadingPage() {
                 setSidebarTab('ann')
               }}>批注工具</Button>
               <Button icon={<EditFilled />} onClick={() => {
-                if (viewMode !== 'native') { setViewMode('native'); message.info('绘制请在「原文件」PDF 视图进行') }
+                // PDF 用原文件视图绘制；PPT/MD/DOCX/TXT 用文本视图绘制
+                const target = currentContentType === 'pdf' ? 'native' : 'text'
+                if (viewMode !== target) setViewMode(target)
                 setDrawing(d => !d)
               }}>绘制工具</Button>
               <Button icon={<SoundOutlined />} onClick={onOpenPodcast}>AI 播客</Button>

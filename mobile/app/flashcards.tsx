@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { View, ScrollView } from 'react-native'
 import { Appbar, Card, Text, Chip, Button, ActivityIndicator } from 'react-native-paper'
+import { useLocalSearchParams } from 'expo-router'
 import { api } from '../src/api'
 import { Flashcard } from '../../shared/types'
 import { REVIEW_RATINGS } from '../../shared/constants'
 
 export default function FlashcardScreen() {
+  const params = useLocalSearchParams<{ doc?: string }>()
   const [docs, setDocs] = useState<any[]>([])
   const [docId, setDocId] = useState('')
   const [mode, setMode] = useState<'due' | 'all'>('due')
@@ -17,8 +19,9 @@ export default function FlashcardScreen() {
   const loadDocs = useCallback(async () => {
     const d = await api.listDocuments()
     setDocs(d)
-    if (d.length && !docId) setDocId(d[0].id)
-  }, [])
+    if (params.doc && d.some((x: any) => x.id === params.doc)) setDocId(params.doc)
+    else if (d.length && !docId) setDocId(d[0].id)
+  }, [params.doc])
 
   const load = useCallback(async () => {
     setLoading(true)

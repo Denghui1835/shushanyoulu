@@ -155,7 +155,7 @@ export const api = {
   restoreFlashcard: (cardId: string) => post<any>(`/api/flashcards/${cardId}/restore`),
 
   // 阅读
-  getReadingContent: (docId: string) => get<{ units: any[] }>(`/api/reading/${docId}/content`),
+  getReadingContent: (docId: string) => get<{ document_id: string; title: string; content_type: string; units: any[] }>(`/api/reading/${docId}/content`),
   listAnnotations: (docId: string) => get<any[]>(`/api/reading/${docId}/annotations`),
   createAnnotation: (docId: string, data: any) => post<any>(`/api/reading/${docId}/annotations`, data),
   deleteAnnotation: (annId: string) => del<any>(`/api/reading/annotations/${annId}`),

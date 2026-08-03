@@ -3,10 +3,12 @@ import { ScrollView, View, RefreshControl } from 'react-native'
 import {
   Appbar, Card, Text, Button, Chip, TextInput, RadioButton, ActivityIndicator, IconButton,
 } from 'react-native-paper'
+import { useLocalSearchParams } from 'expo-router'
 import { api } from '../src/api'
 import { Question } from '../../shared/types'
 
 export default function QuizScreen() {
+  const params = useLocalSearchParams<{ doc?: string }>()
   const [docs, setDocs] = useState<any[]>([])
   const [docId, setDocId] = useState('')
   const [questions, setQuestions] = useState<Question[]>([])
@@ -19,8 +21,9 @@ export default function QuizScreen() {
   const loadDocs = useCallback(async () => {
     const d = await api.listDocuments()
     setDocs(d)
-    if (d.length && !docId) setDocId(d[0].id)
-  }, [])
+    if (params.doc && d.some((x: any) => x.id === params.doc)) setDocId(params.doc)
+    else if (d.length && !docId) setDocId(d[0].id)
+  }, [params.doc])
 
   const load = useCallback(async () => {
     if (!docId) return

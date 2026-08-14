@@ -11,6 +11,7 @@ from app.core.quiz import (
     generate_questions, grade, quiz_stats, set_question_discarded, set_question_mistake,
     list_questions as list_questions_core,
 )
+from app.core.mock_exam import build_mock_exam, grade_mock_exam
 from app.models import Question, QuizRecord, Document
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
@@ -18,6 +19,30 @@ router = APIRouter(prefix="/api/questions", tags=["questions"])
 
 class GradeIn(BaseModel):
     user_answer: str
+
+
+class MockGradeIn(BaseModel):
+    answers: dict[str, str]
+    subject: str = "python"   # python / c
+
+
+# ---------------------------------------------------------------- 全真模拟（须在 /{document_id} 之前定义）
+
+@router.get("/mock")
+async def mock_exam(subject: str = "python", db: AsyncSession = Depends(get_db)):
+    """全真模拟考试卷：严格仿 NCRE-2（python/c 两种科目，120 分钟、40 选择 + 60 操作）。"""
+    return await build_mock_exam(db, subject)
+
+
+@router.post("/mock/grade")
+async def mock_grade(data: MockGradeIn, db: AsyncSession = Depends(get_db)):
+    """交卷判分：返回成绩单（总分/部分分/合格/逐题解析）。"""
+    try:
+        return await grade_mock_exam(db, data.answers, data.subject)
+    except Exception as e:
+        import logging
+        logging.getLogger("yuanqi.api.questions").exception("mock grade failed")
+        raise HTTPException(status_code=500, detail=f"判分失败：{e}")
 
 
 # ---------------------------------------------------------------- 错题本（须在 /{document_id} 之前定义）

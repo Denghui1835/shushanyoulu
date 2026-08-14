@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Button, Modal, Form, Input, InputNumber, Upload, Progress, message, Popconfirm,
-  Empty, Spin, Space, Tag, Tooltip, List, Select, Segmented, Checkbox, Switch,
+  Empty, Spin, Space, Tag, Tooltip, List, Select, Segmented, Checkbox, Switch, Result,
 } from 'antd'
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import {
@@ -9,11 +9,13 @@ import {
   PlusOutlined, ThunderboltOutlined, BookOutlined, AppstoreOutlined,
   EditFilled, ThunderboltFilled, ReadOutlined, FileTextOutlined, ColumnWidthOutlined,
   EyeOutlined, AudioOutlined, DownOutlined, RightOutlined, FolderOutlined,
+  BulbOutlined, SoundOutlined, ClockCircleOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, streamSSE } from '../api'
 import ChapterPreviewModal from '../components/ChapterPreviewModal'
 import VoiceAgentPanel from '../components/VoiceAgentPanel'
+import KanbanBoard from '../components/KanbanBoard'
 
 // 与 NativeFileView 相同的 worker（pdfjs-dist@4.8.69 与 react-pdf 内部一致）
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
@@ -76,6 +78,12 @@ interface BookMeta {
 }
 
 const TYPE_TAG: Record<string, string> = { pdf: 'purple', docx: 'blue', md: 'green', txt: 'default', pptx: 'orange', blank: 'gold' }
+
+// 书 → 模拟考试科目（仅这些科目有题库/模拟配置）
+const MOCK_SUBJECTS: Record<string, string> = { 'Python程序设计': 'python', 'C语言程序设计': 'c' }
+
+// 有课程大纲（老教授课堂）可用的学科
+const COURSE_SUBJECTS = ['Python程序设计', 'C语言程序设计', '数学建模', '数学分析', '高等代数', '数理统计', '3DGS']
 
 /** 调节器页带按书着色（下标对应 books 顺序） */
 const BOOK_COLORS = ['#7c5cfc', '#36a3f7', '#52c41a', '#fa8c16', '#eb2f96']
@@ -141,6 +149,7 @@ export default function ProjectDetailPage() {
 
   // 语音助手（对话 + 提议章节修改）
   const [agentOpen, setAgentOpen] = useState(false)
+  const [projView, setProjView] = useState<'chapters' | 'kanban'>('chapters')
 
   // 目录层级：折叠的分组 + 新建分组弹窗
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -152,12 +161,17 @@ export default function ProjectDetailPage() {
   const [attaching, setAttaching] = useState(false)
   const [attachForm] = Form.useForm()
 
+  const [loadErr, setLoadErr] = useState('')
+
   const load = async () => {
     setLoading(true)
+    setLoadErr('')
     try {
       const d = await api.getProject(id)
       setProject(d.project)
       setChapters(d.documents)
+    } catch (e: any) {
+      setLoadErr(e?.response?.data?.detail || e?.message || '加载项目失败')
     } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [id])
@@ -587,6 +601,11 @@ export default function ProjectDetailPage() {
 
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
+  if (loadErr || !project) return (
+    <Result status="error" title="加载项目失败" subTitle={loadErr || '项目不存在'}
+      extra={<Button type="primary" onClick={load}>重试</Button>} />
+  )
+
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* 项目头 */}
@@ -630,8 +649,53 @@ export default function ProjectDetailPage() {
         </Space>
       </div>
 
-      {/* 目录 */}
-      {chapters.length === 0 ? (
+      {/* 学习工具：按书聚合（从零学 → 练 → 考，入门到模拟） */}
+      <div className="page-card" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600, marginRight: 4 }}>🧰 学习工具：</span>
+        {COURSE_SUBJECTS.includes(project?.subject || '') && (
+          <Button type="primary" ghost icon={<BookOutlined />} onClick={() => navigate(`/course?subject=${encodeURIComponent(project.subject)}`)}>
+            老教授课堂
+          </Button>
+        )}
+        <Button type="primary" ghost icon={<BulbOutlined />} onClick={() => navigate(`/lesson?category=${project?.category || ''}&sub=${project?.category_sub || ''}`)}>
+          深度教学
+        </Button>
+        <Button icon={<EditFilled />} onClick={() => {
+          const qc = chapters.find(c => !c.is_group && (c.title || '').includes('题库'))
+            || chapters.find(c => !c.is_group && (c.question_count || 0) > 0)
+          navigate(qc ? `/quiz?doc=${qc.id}` : '/quiz')
+        }}>
+          刷题练习
+        </Button>
+        <Button icon={<SoundOutlined />} onClick={() => navigate(`/podcasts?project=${id}`)}>
+          播客
+        </Button>
+        {(() => {
+          const mockSubject = MOCK_SUBJECTS[project?.subject || '']
+          const hasBank = chapters.some(c => (c.title || '').includes('题库'))
+          if (!mockSubject || !hasBank) return null
+          return (
+            <Button icon={<ClockCircleOutlined />} onClick={() => navigate(`/mock-exam?subject=${mockSubject}`)}>
+              全真模拟
+            </Button>
+          )
+        })()}
+      </div>
+
+      {/* 视图切换：章节 / 看板 */}
+      <div className="page-card" style={{ marginBottom: 12, marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Segmented
+          value={projView}
+          onChange={v => setProjView(v as 'chapters' | 'kanban')}
+          options={[
+            { value: 'chapters', label: '📖 章节' },
+            { value: 'kanban', label: '📋 看板' },
+          ]}
+        />
+      </div>
+
+      {/* 目录（章节视图） */}
+      {projView === 'chapters' && (chapters.length === 0 ? (
         <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
           <Empty description="这本书还没有章节，可导入整本 PDF（自动按目录分章），或单章导入 PPT / 讲义" />
           <Space style={{ marginTop: 12 }}>
@@ -681,7 +745,14 @@ export default function ProjectDetailPage() {
             })}
           </div>
         )
-      })()}
+      })())}
+
+      {/* 看板视图 */}
+      {projView === 'kanban' && (
+        <div className="page-card">
+          <KanbanBoard projectId={id} />
+        </div>
+      )}
 
       {/* 编辑项目 */}
       <Modal title="编辑项目" open={editOpen} onOk={saveProject} onCancel={() => setEditOpen(false)} okText="保存" cancelText="取消">

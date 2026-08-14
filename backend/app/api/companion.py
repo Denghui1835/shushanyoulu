@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models import (
     User, ChatSession, ChatMessage, LearningPlan, PlanTask, StudyLog,
 )
-from app.core.companion import generate_plan, adjust_plan, stream_chat, build_context, _today_str
+from app.core.companion import generate_plan, adjust_plan, stream_chat, build_context, _today_str, generate_wizard_plan
 from app.core.memory import due_count
 
 logger = logging.getLogger("yuanqi.api.companion")
@@ -110,6 +110,46 @@ class PlanIn(BaseModel):
     goal: str | None = None
     goal_detail: str | None = None
     daily_minutes: int | None = None
+
+
+class PlanWizardIn(BaseModel):
+    courses: list[str] = []        # 想学的课程/知识点
+    time_slots: list[str] = []     # 有空的时段，如 ["早上", "晚上"]
+    daily_minutes: int = 30
+    total_days: int = 7
+
+
+@router.post("/plan/wizard")
+async def create_wizard_plan(data: PlanWizardIn, db: AsyncSession = Depends(get_db)):
+    """AI 一键生成计划表：按选定的课程 + 空余时段排布每日计划。"""
+    user = await get_or_create_user(db)
+    if not data.courses:
+        raise HTTPException(status_code=400, detail="请至少选择一门想学的课程")
+    try:
+        plan = await generate_wizard_plan(
+            db, user,
+            courses=data.courses,
+            time_slots=data.time_slots,
+            daily_minutes=max(10, min(480, data.daily_minutes)),
+            total_days=max(1, min(60, data.total_days)),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"计划生成失败：{e}")
+
+    tasks = (await db.execute(
+        select(PlanTask).where(PlanTask.plan_id == plan.id).order_by(PlanTask.day_index)
+    )).scalars().all()
+    return {
+        "plan": {"id": plan.id, "title": plan.title, "summary": plan.summary,
+                 "total_days": plan.total_days, "status": plan.status},
+        "tasks": [{
+            "id": t.id, "day": t.day_index, "scheduled_date": t.scheduled_date,
+            "title": t.title, "description": t.description, "type": t.task_type,
+            "status": t.status,
+        } for t in tasks],
+    }
 
 
 @router.post("/plan")

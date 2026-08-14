@@ -58,6 +58,17 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     return user
 
 
+async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)) -> User | None:
+    """可选认证：有合法 token 返回该用户，否则返回 None（本地免登录场景也用）。"""
+    token = _extract_token(request)
+    if not token:
+        return None
+    row = (await db.execute(select(AuthToken).where(AuthToken.token == token))).scalars().first()
+    if not row:
+        return None
+    return await db.get(User, row.user_id)
+
+
 async def issue_token(db: AsyncSession, user: User) -> str:
     token = new_token()
     db.add(AuthToken(user_id=user.id, token=token))

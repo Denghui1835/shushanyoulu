@@ -103,7 +103,7 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
       if (t) setEditInstr(v => (v ? `${v}${t}` : t))
     }
     rec.onend = () => setRecording(false)
-    rec.onerror = () => setRecording(false)
+    rec.onerror = () => { setRecording(false); message.error('语音识别出错，请检查麦克风权限') }
     recRef.current = rec
     try { rec.start(); setRecording(true) } catch { message.warning('无法启动语音识别') }
   }
@@ -119,7 +119,7 @@ export default function PodcastPanel({ docId, unitIndex, unitTitle }: Props) {
       setEditInstr('')
       setManualEdit(false)
       setDraft('')
-      message.success('文稿已按你的要求修改')
+      message.success(`文稿已按你的要求修改${script?.has_audio ? '，旧音频已清除，请重新合成' : ''}`)
     } catch (e: any) {
       message.error(e?.response?.data?.detail || '修改失败')
     } finally { setEditing(false) }

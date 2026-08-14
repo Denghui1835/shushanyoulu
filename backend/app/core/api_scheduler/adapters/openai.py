@@ -2,10 +2,32 @@
 import json
 import asyncio
 from typing import AsyncIterator
-import tiktoken
 import httpx
 from .base import BaseModelAdapter, AdapterConfig, AdapterResponse
 from .http_utils import sync_post
+
+# tiktoken 词表在首次调用时会联网下载，可能卡死启动。改为懒加载 + 纯字符兜底。
+_encoder = None
+
+
+def _get_encoder():
+    """懒加载 tiktoken encoder，失败则用纯字符估算（绝不阻塞启动）。"""
+    global _encoder
+    if _encoder is not None:
+        return _encoder
+    try:
+        import tiktoken
+        _encoder = tiktoken.encoding_for_model("gpt-4o")
+    except Exception:
+        # 无词表时的兜底：用字符数×0.5 粗略估算 token（仅影响统计，不影响功能）
+        class _FallbackEncoder:
+            def encode(self, text: str):
+                return text  # 不作为真正 token 使用
+            @staticmethod
+            def _estimate(text: str) -> int:
+                return max(1, len(text) * 2 // 3)
+        _encoder = _FallbackEncoder()
+    return _encoder
 
 
 class OpenAICompatAdapter(BaseModelAdapter):
@@ -16,10 +38,7 @@ class OpenAICompatAdapter(BaseModelAdapter):
     def __init__(self, api_key: str, base_url: str = "https://api.openai.com/v1", model_name: str = "gpt-4o"):
         super().__init__(api_key, base_url)
         self.model_name = model_name
-        try:
-            self._encoder = tiktoken.encoding_for_model("gpt-4o")
-        except Exception:
-            self._encoder = tiktoken.get_encoding("cl100k_base")
+        self._encoder = None
 
     async def chat_completion(
         self, messages: list[dict[str, str]], config: AdapterConfig
@@ -41,7 +60,10 @@ class OpenAICompatAdapter(BaseModelAdapter):
         return self._parse_response(data)
 
     def count_tokens(self, text: str) -> int:
-        return len(self._encoder.encode(text))
+        enc = _get_encoder()
+        if hasattr(enc, "_estimate"):
+            return enc._estimate(text)
+        return len(enc.encode(text))
 
     async def stream_chat_completion(
         self, messages: list[dict[str, str]], config: AdapterConfig

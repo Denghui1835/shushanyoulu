@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Select, Button, Radio, Input, Tag, message, Empty, Space, Alert, Segmented, Popconfirm } from 'antd'
-import { EditOutlined, RightOutlined, DeleteOutlined, UndoOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons'
+import { useEffect, useMemo, useState } from 'react'
+import { Select, Button, Radio, Input, Tag, message, Empty, Space, Alert, Segmented, Popconfirm, InputNumber } from 'antd'
+import { EditOutlined, RightOutlined, DeleteOutlined, UndoOutlined, StarOutlined, ReloadOutlined, SearchOutlined, ShakeOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 
@@ -17,13 +17,20 @@ export default function QuizPage() {
   const [correctCount, setCorrectCount] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [params] = useSearchParams()
+  const [keyword, setKeyword] = useState('')              // 考点关键词筛选
+  const [randomOrder, setRandomOrder] = useState<number[] | null>(null)  // 随机组卷顺序
+  const [randomN, setRandomN] = useState(10)              // 随机组卷题数
 
   const loadDocs = async () => {
     const d = await api.listDocuments()
     setDocs(d)
     const fromUrl = params.get('doc')
     if (fromUrl && d.some((x: any) => x.id === fromUrl)) setDocId(fromUrl)
-    else if (d.length) setDocId(d[0].id)
+    else {
+      // 默认优先落到题库章节（有现成题目可直接刷），否则取第一个
+      const bank = d.find((x: any) => (x.title || '').includes('题库'))
+      setDocId(bank ? bank.id : (d[0]?.id || ''))
+    }
   }
   useEffect(() => { loadDocs() }, [])
 
@@ -34,9 +41,34 @@ export default function QuizPage() {
     if (filter === 'discarded') opts.include_discarded = true
     const res = await api.listQuestions(docId, opts)
     setQuestions(res.questions)
+    setRandomOrder(null)
     setIdx(0); setAnswer(''); setResult(null); setCorrectCount(0)
   }
   useEffect(() => { if (docId) load() }, [docId, filter])
+
+  // 考点关键词筛选（按题干过滤）
+  const filtered = useMemo(() => {
+    if (!keyword.trim()) return questions
+    const k = keyword.trim().toLowerCase()
+    return questions.filter((q: any) => (q.question || '').toLowerCase().includes(k))
+  }, [questions, keyword])
+
+  // 展示列表：随机组卷时按打乱顺序取前 N 道
+  const display = useMemo(() => {
+    if (!randomOrder) return filtered
+    return randomOrder.map(i => filtered[i]).filter(Boolean)
+  }, [filtered, randomOrder])
+
+  const shuffle = () => {
+    const n = Math.min(randomN, filtered.length)
+    const order = Array.from({ length: filtered.length }, (_, i) => i)
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[order[i], order[j]] = [order[j], order[i]]
+    }
+    setRandomOrder(order.slice(0, n))
+    setIdx(0); setAnswer(''); setResult(null); setCorrectCount(0)
+  }
 
   const generate = async () => {
     setGenerating(true)
@@ -51,7 +83,7 @@ export default function QuizPage() {
 
   const submit = async () => {
     if (!answer.trim()) { message.warning('先填写答案'); return }
-    const res = await api.gradeQuestion(questions[idx].id, answer)
+    const res = await api.gradeQuestion(display[idx].id, answer)
     setResult(res)
     if (res.correct) { setCorrectCount(c => c + 1); message.success('回答正确 🎉') }
   }
@@ -74,11 +106,11 @@ export default function QuizPage() {
     load()
   }
 
-  const q = questions[idx]
-  const finished = questions.length > 0 && idx >= questions.length
+  const q = display[idx]
+  const finished = display.length > 0 && idx >= display.length
 
   const FILTER_OPTS = [
-    { value: 'all', label: `全部 (${questions.length})` },
+    { value: 'all', label: `全部 (${display.length})` },
     { value: 'mistake', label: '错题本' },
     { value: 'discarded', label: '已弃用' },
   ]
@@ -100,13 +132,26 @@ export default function QuizPage() {
         <div style={{ marginTop: 10 }}>
           <Segmented value={filter} onChange={v => setFilter(v as Filter)} options={FILTER_OPTS} />
         </div>
+        <Space wrap style={{ marginTop: 10 }}>
+          <Input
+            allowClear placeholder="按考点筛选（如：列表 / 指针）"
+            prefix={<SearchOutlined />} value={keyword}
+            onChange={e => { setKeyword(e.target.value); setIdx(0); setAnswer(''); setResult(null); setCorrectCount(0) }}
+            style={{ width: 220 }}
+          />
+          <InputNumber min={5} max={50} value={randomN} onChange={v => v && setRandomN(v)} style={{ width: 78 }} addonBefore="抽" />
+          <Button icon={<ShakeOutlined />} onClick={shuffle} disabled={filtered.length === 0}>
+            {randomOrder ? '重新随机组卷' : '随机组卷'}
+          </Button>
+          {randomOrder && <Tag color="geekblue">随机 {display.length} 题（共 {filtered.length} 题）</Tag>}
+        </Space>
       </div>
 
       {finished ? (
         <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
           <h2 style={{ marginTop: 0 }}>本次练习完成 🎉</h2>
           <p style={{ color: '#666', fontSize: 15 }}>
-            共 <b>{questions.length}</b> 题，答对 <b style={{ color: '#52c41a' }}>{correctCount}</b> 题
+            共 <b>{display.length}</b> 题，答对 <b style={{ color: '#52c41a' }}>{correctCount}</b> 题
           </p>
           <p style={{ color: '#999', fontSize: 13 }}>
             做错的题可点「加入错题本」收录，方便日后集中复习
@@ -169,6 +214,7 @@ export default function QuizPage() {
                   description={
                     <div>
                       <div><b>答案：</b>{result.answer}</div>
+                      {result.comment && <div style={{ marginTop: 6 }}><b>阅卷点评：</b>{result.comment}</div>}
                       {result.explanation && <div style={{ marginTop: 6 }}><b>解析：</b>{result.explanation}</div>}
                     </div>
                   }

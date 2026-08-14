@@ -57,12 +57,13 @@ async def _generate_batch(db: AsyncSession, doc: Document, chunks: list[str]) ->
 {src[:9000]}
 
 请输出 JSON 数组（不要任何多余文字），每项：
-{{"type": "choice"|"fill"|"essay", "question": "题目", "options": ["选项A","选项B","选项C","选项D","选项E","选项F"] | [], "answer": "正确答案", "explanation": "解析（引用资料内容）"}}
+{{"type": "choice"|"fill", "question": "题目", "options": ["选项A","选项B","选项C","选项D","选项E","选项F"] | [], "answer": "正确答案", "explanation": "解析（引用资料内容）"}}
 要求：
-- 至少包含 2 道选择题，题目和答案必须严格基于资料内容
-- 选择题必须给出恰好 6 个选项（选项A-F），answer 与其中一个选项完全一致
-- 填空题答案不超过 20 字；简答题答案 1-3 句
-- options 仅选择题有，其余为空数组"""
+- 只生成客观题（选择题 + 填空题），不要生成简答题
+- 尽量多出选择题；题目和答案必须严格基于资料内容
+- 选择题必须给出恰好 6 个选项（选项A-F），答案必须唯一明确，且与其中一个选项完全一致
+- 填空题答案必须简短、唯一、无歧义，不超过 20 字
+- options 仅选择题有，填空题为空数组"""
 
     adapter = api_client.get_adapter(settings.default_model)
     resp = await adapter.chat_completion(
@@ -74,8 +75,8 @@ async def _generate_batch(db: AsyncSession, doc: Document, chunks: list[str]) ->
     questions = []
     for q in data[:8]:
         qtype = q.get("type", "choice")
-        if qtype not in ("choice", "fill", "essay"):
-            qtype = "choice"
+        if qtype not in ("choice", "fill"):
+            continue  # 只保留客观题，简答题直接丢弃
         questions.append(Question(
             document_id=doc.id,
             qtype=qtype,
@@ -105,6 +106,22 @@ def _parse_array(text: str) -> list[dict]:
         return []
 
 
+def _parse_obj(text: str) -> dict:
+    """从 LLM 返回里提取一个 JSON 对象；失败返回 {}。"""
+    text = text.strip()
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence:
+        text = fence.group(1).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return {}
+    try:
+        return json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return {}
+
+
 # ---------------------------------------------------------------- grading
 
 _ANSWER_KEYWORDS = re.compile(r"[\w一-鿿]+")
@@ -114,6 +131,27 @@ _STOP_CHARS = {"的", "了", "是", "在", "和", "与", "及", "或", "一个",
 def _keywords(text: str) -> set[str]:
     words = _ANSWER_KEYWORDS.findall(text)
     return {w for w in words if w not in _STOP_CHARS and len(w) > 1}
+
+
+def grade_choice(options: list[str], answer: str, user_answer: str) -> bool:
+    """选择题判分：支持选项全文 / 字母(A-D) / "A. 选项" 三种作答形式。
+
+    注意：单个字母可能是合法选项原文（如答案就是 "n"），所以字母编号路径
+    匹配失败时必须回退到全文匹配，避免把字母选项误判成编号。
+    """
+    user_answer = (user_answer or "").strip()
+    picked = user_answer.upper()
+    if len(picked) == 1 and picked.isalpha() and options:
+        idx = ord(picked) - ord("A")
+        if 0 <= idx < len(options) and options[idx].strip() == answer.strip():
+            return True
+    if user_answer == answer.strip():
+        return True
+    if len(picked) >= 2 and picked[0].isalpha() and picked[1] in (".", "、", " "):
+        idx = ord(picked[0]) - ord("A")
+        if 0 <= idx < len(options) and options[idx].strip() == answer.strip():
+            return True
+    return False
 
 
 async def grade(db: AsyncSession, question_id: str, user_answer: str) -> dict:
@@ -129,24 +167,21 @@ async def grade(db: AsyncSession, question_id: str, user_answer: str) -> dict:
             options = json.loads(q.options or "[]")
         except json.JSONDecodeError:
             options = []
-        correct = False
-        picked = user_answer.strip().upper()
-        # accept letter (A/B/C/D) or full option text
-        if len(picked) == 1 and picked.isalpha() and options:
-            idx = ord(picked) - ord("A")
-            correct = 0 <= idx < len(options) and options[idx].strip() == q.answer.strip()
-        else:
-            correct = user_answer == q.answer.strip()
-            # also match letter + text like "A. xxx"
-            if not correct and len(picked) >= 2 and picked[0].isalpha() and picked[1] in (".", "、", " "):
-                idx = ord(picked[0].upper()) - ord("A")
-                correct = 0 <= idx < len(options) and options[idx].strip() == q.answer.strip()
+        correct = grade_choice(options, q.answer, user_answer)
+        comment = ""
     else:
-        correct = _grade_text(q.answer, user_answer)
+        # 填空/简答：AI 阅卷判断（失败回退关键词判分）
+        ai = await _ai_grade(q, user_answer)
+        if ai is not None:
+            correct = ai["correct"]
+            comment = ai.get("comment", "")
+        else:
+            correct = _grade_text(q.answer, user_answer)
+            comment = ""
 
     db.add(QuizRecord(question_id=question_id, user_answer=user_answer, correct=correct))
     await db.commit()
-    return {"correct": correct, "answer": q.answer, "explanation": q.explanation}
+    return {"correct": correct, "answer": q.answer, "explanation": q.explanation, "comment": comment}
 
 
 def _grade_text(correct_answer: str, user_answer: str) -> bool:
@@ -160,6 +195,35 @@ def _grade_text(correct_answer: str, user_answer: str) -> bool:
     overlap = ans_kw & user_kw
     # require ≥60% of the key answer keywords present
     return len(overlap) / len(ans_kw) >= 0.6
+
+
+async def _ai_grade(q: Question, user_answer: str) -> dict | None:
+    """LLM 阅卷：判断填空/简答答案对错并给出点评。
+
+    返回 {"correct": bool, "comment": str}；失败（含用户作答太短）返回 None，
+    由调用方回退到关键词判分。
+    """
+    if len(user_answer) < 4:
+        return None
+    prompt = f"""你是阅卷老师，判断学生的答案是否正确。
+【题目】{q.question}
+【参考答案】{q.answer}
+【学生的回答】{user_answer}
+
+只输出一个 JSON 对象（不要任何多余文字）：
+{{"correct": true 或 false, "comment": "一句话点评（答对则肯定；答错指出错在哪、怎么改，20字内）"}}"""
+    try:
+        adapter = api_client.get_adapter(settings.default_model)
+        resp = await adapter.chat_completion(
+            [{"role": "user", "content": prompt}],
+            AdapterConfig(temperature=0.2, max_tokens=200),
+        )
+        data = _parse_obj(resp.content)
+        if "correct" in data:
+            return {"correct": bool(data["correct"]), "comment": str(data.get("comment", ""))}
+    except Exception as e:
+        logger.warning("AI 阅卷失败，回退关键词判分: %s", e)
+    return None
 
 
 async def quiz_stats(db: AsyncSession, document_id: str | None = None) -> dict:

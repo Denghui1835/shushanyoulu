@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Tag, Button, Timeline, Empty, message, Spin, Popconfirm } from 'antd'
+import { useNavigate } from 'react-router-dom'
+import { Card, Tag, Button, Timeline, Empty, message, Spin, Popconfirm, Result } from 'antd'
 import { CheckOutlined, ThunderboltOutlined, ClockCircleOutlined, SyncOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api } from '../api'
@@ -12,14 +13,19 @@ const TYPE_LABEL: Record<string, { text: string; color: string }> = {
 }
 
 export default function PlanPage() {
+  const navigate = useNavigate()
   const [data, setData] = useState<any>({ plan: null, tasks: [] })
   const [loading, setLoading] = useState(true)
+  const [loadErr, setLoadErr] = useState('')
 
   const load = async () => {
     setLoading(true)
+    setLoadErr('')
     try {
       const d = await api.getPlan()
       setData(d)
+    } catch (e: any) {
+      setLoadErr(e?.response?.data?.detail || e?.message || '加载失败')
     } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
@@ -44,6 +50,11 @@ export default function PlanPage() {
 
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
+  if (loadErr) return (
+    <Result status="error" title="加载失败" subTitle={loadErr}
+      extra={<Button type="primary" onClick={load}>重试</Button>} />
+  )
+
   const { plan, tasks } = data
 
   if (!plan) {
@@ -54,7 +65,7 @@ export default function PlanPage() {
         <p style={{ color: '#999' }}>
           去「伴学首页」告诉书山有路你的目标，它就会为你量身制定一份学习计划
         </p>
-        <Button type="primary" onClick={() => (window.location.href = '/')}>去制定计划</Button>
+        <Button type="primary" onClick={() => navigate('/')}>去制定计划</Button>
       </div>
     )
   }
@@ -75,7 +86,11 @@ export default function PlanPage() {
         <div style={{ marginTop: 12, color: '#999', fontSize: 13 }}>
           共 {plan.total_days} 天 · 已完成 {doneCount}/{tasks.length} 项任务
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button type="primary" size="small" icon={<ThunderboltOutlined />}
+            onClick={() => navigate('/plan/wizard')}>
+            ✨ AI 一键生成计划表
+          </Button>
           <Popconfirm title="按当前进度重排剩余学习安排？已掌握的内容会压缩，薄弱点会补上" onConfirm={adjust}>
             <Button size="small" icon={<SyncOutlined />} loading={adjusting}>按进度调整计划</Button>
           </Popconfirm>

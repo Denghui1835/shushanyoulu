@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Card, Avatar, Button, Form, Input, InputNumber, Tag, Space, message, Spin, Popconfirm, Alert,
+  Card, Avatar, Button, Form, Input, InputNumber, Tag, Space, message, Spin, Popconfirm, Alert, Result,
 } from 'antd'
 import { UserOutlined, ApiOutlined, LogoutOutlined, WechatOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -79,7 +79,7 @@ export default function ProfilePage() {
 
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
-  if (!getAuthToken() || !data) {
+  if (!getAuthToken()) {
     return (
       <div style={{ maxWidth: 420, margin: '80px auto' }}>
         <div className="page-card" style={{ textAlign: 'center', padding: 40 }}>
@@ -90,6 +90,11 @@ export default function ProfilePage() {
         </div>
       </div>
     )
+  }
+
+  if (!data) {
+    return <Result status="warning" title="加载失败" subTitle="服务器暂时无响应，请稍后重试"
+      extra={<Button type="primary" onClick={() => { setLoading(true); load() }}>重试</Button>} />
   }
 
   const s = data.stats || {}

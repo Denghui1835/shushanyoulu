@@ -13,8 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.core.auth import get_optional_user
+from app.core.categories import normalize_category
 from app.models import (
-    Project, Document, Chunk, KnowledgePoint, Question, Flashcard, Annotation, DocSummary,
+    Project, Document, Chunk, KnowledgePoint, Question, Flashcard, Annotation, DocSummary, User,
 )
 from app.api.documents import delete_document_cascade, ALLOWED_EXT
 from app.core.book_split import (
@@ -49,6 +51,8 @@ class ProjectIn(BaseModel):
     description: str = ""
     icon: str = "📚"
     blank_enabled: bool = False  # 按书配置：是否开启「关键词挖空」
+    category: str = ""           # 一级：学科门类，如 理学/工学
+    category_sub: str = ""       # 二级：一级学科，如 数学/人工智能
 
 
 class ProjectUpdate(BaseModel):
@@ -79,13 +83,17 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("")
-async def create_project(data: ProjectIn, db: AsyncSession = Depends(get_db)):
+async def create_project(data: ProjectIn, db: AsyncSession = Depends(get_db),
+                         user: User | None = Depends(get_optional_user)):
     title = data.title.strip()
     if not title:
         raise HTTPException(status_code=400, detail="项目名称不能为空")
-    p = Project(user_id=LOCAL_USER_ID, title=title,
+    owner_id = user.id if user else LOCAL_USER_ID
+    cat, sub = normalize_category(data.category, data.category_sub)
+    p = Project(user_id=owner_id, title=title,
                 description=data.description or "", icon=data.icon or "📚",
-                blank_enabled=data.blank_enabled)
+                blank_enabled=data.blank_enabled,
+                category=cat, category_sub=sub, subject=sub or cat)
     db.add(p)
     await db.commit()
     await db.refresh(p)
@@ -168,6 +176,8 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
     return {
         "project": {"id": p.id, "title": p.title, "description": p.description,
                     "icon": p.icon, "blank_enabled": bool(p.blank_enabled),
+                    "category": p.category or "", "category_sub": p.category_sub or "",
+                    "subject": p.subject or "",
                     "created_at": p.created_at.isoformat(),
                     "book_total_pages": book_total,
                     "books": books},

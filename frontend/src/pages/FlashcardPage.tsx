@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Tag, message, Empty, Space, Select, Segmented, Popconfirm } from 'antd'
 import { ThunderboltOutlined, ReloadOutlined, DeleteOutlined, UndoOutlined, SoundOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
@@ -39,7 +39,8 @@ export default function FlashcardPage() {
       else res = withDiscarded
     }
     setCards(res.flashcards)
-    setIdx(0); setFlipped(false); setReviewed(0)
+    setIdx(0); setFlipped(false)
+    if (res.flashcards.length > 0) setReviewed(0)  // 有新卡片才清零，否则保留上一轮计数
   }
   useEffect(() => { load() }, [filter, docId])
 
@@ -85,10 +86,10 @@ export default function FlashcardPage() {
   const card = cards[idx]
   const finished = !card && reviewed > 0
   const RATINGS = [
-    { v: 1, label: '很模糊', color: 'default' },
-    { v: 2, label: '有点难', color: 'orange' },
-    { v: 3, label: '记住了', color: 'blue' },
-    { v: 4, label: '很简单', color: 'green' },
+    { v: 1, label: '很模糊', color: 'danger' as const },
+    { v: 2, label: '有点难', color: 'orange' as const },
+    { v: 3, label: '记住了', color: 'primary' as const },
+    { v: 4, label: '很简单', color: 'green' as const },
   ]
 
   return (
@@ -161,10 +162,11 @@ export default function FlashcardPage() {
           </div>
 
           <Card
-            style={{ cursor: 'pointer', minHeight: 200, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ cursor: 'pointer', minHeight: 220, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
             onClick={() => setFlipped(f => !f)}
-            styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 } }}
+            styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 220 } }}
           >
+            {!flipped && <div style={{ position: 'absolute', bottom: 8, right: 12, fontSize: 11, color: '#bbb' }}>点击翻转↗</div>}
             {flipped ? (
               <div style={{ fontSize: 18, lineHeight: 1.8 }}>{card.back}</div>
             ) : (
@@ -200,7 +202,7 @@ export default function FlashcardPage() {
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {RATINGS.map(r => (
-                  <Button key={r.v} size="large" style={{ minWidth: 90 }} onClick={() => review(r.v)}>
+                  <Button key={r.v} size="large" color={r.color} variant="solid" style={{ minWidth: 90 }} onClick={() => review(r.v)}>
                     {r.label}
                   </Button>
                 ))}

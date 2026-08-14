@@ -107,6 +107,7 @@ async def set_user_llm_context(request: Request, call_next):
         set_current_user_id("local_user")
 
 from app.api.companion import router as companion_router
+from app.api.lesson import router as lesson_router
 from app.api.documents import router as documents_router
 from app.api.projects import router as projects_router
 from app.api.knowledge import router as knowledge_router
@@ -120,8 +121,13 @@ from app.api.community import router as community_router
 from app.api.auth import router as auth_router
 from app.api.profile import router as profile_router
 from app.api.tts import router as tts_router
+from app.api.stats import router as stats_router
+from app.api.kanban import router as kanban_router
+from app.api.schedules import router as schedules_router
+from app.api.course import router as course_router
 
 app.include_router(companion_router)
+app.include_router(lesson_router)
 app.include_router(documents_router)
 app.include_router(projects_router)
 app.include_router(knowledge_router)
@@ -135,6 +141,10 @@ app.include_router(community_router)
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(tts_router)
+app.include_router(stats_router)
+app.include_router(kanban_router)
+app.include_router(schedules_router)
+app.include_router(course_router)
 
 
 @app.get("/")

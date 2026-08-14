@@ -25,6 +25,7 @@ frontend/.vite/
 Thumbs.db
 
 # Data (local runtime data — NEVER upload)
+backend/data/
 backend/data/*.db*
 backend/data/documents/
 backend/data/deps_ok

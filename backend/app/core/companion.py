@@ -308,6 +308,94 @@ async def generate_plan(db: AsyncSession, user: User) -> LearningPlan:
     return plan
 
 
+async def generate_wizard_plan(
+    db: AsyncSession, user: User,
+    courses: list[str], time_slots: list[str],
+    daily_minutes: int, total_days: int,
+) -> LearningPlan:
+    """向导式一键生成计划：学习者选了想学的课程 + 有空的时间段 → AI 排出一份每天的计划。
+
+    与 generate_plan 的区别：不依赖空白目标，直接根据「选定的课程 + 空余时段」排布。
+    """
+    if not courses:
+        raise ValueError("请至少选择一门想学的课程")
+
+    course_lines = "\n".join(f"- {c}" for c in courses)
+    slot_lines = "\n".join(f"- {s}" for s in time_slots) if time_slots else "- (未指定，默认白天/晚上均可)"
+
+    prompt = f"""为学习者生成一份可执行的一周学习计划（每天安排上面选择的课程）。
+【学习者想学的课程/知识点】
+{course_lines}
+
+【TA 有空的时段】
+{slot_lines}
+
+【每天可投入】约 {daily_minutes} 分钟
+【计划时长】{total_days} 天
+
+要求：
+- 把选中的课程合理分配到 {total_days} 天里，同一天别堆太多（考虑每天 {daily_minutes} 分钟）
+- 按从易到难的顺序安排（如「是什么」这类入门概念放前面）
+- 每个任务的标题 = 对应课程/知识点名，描述里说明「学什么、怎么学（如先理解再复述）」
+- 第 1 天先给入门概念，中间安排练习/复习，结尾安排综合回顾
+
+{_PLAN_SCHEMA_HINT}"""
+
+    messages = [{"role": "system", "content": PERSONA}, {"role": "user", "content": prompt}]
+    adapter = api_client.get_adapter(settings.default_model)
+    resp = await adapter.chat_completion(messages, AdapterConfig(temperature=0.6, max_tokens=3000))
+    data = _extract_json(resp.content)
+    logger.info("向导计划 JSON: %.200s", data)
+
+    plan = LearningPlan(
+        user_id=user.id,
+        title=data.get("title", "AI 生成的学习计划"),
+        goal=user.goal,
+        summary=data.get("summary", f"基于你选的 {len(courses)} 门课，共 {total_days} 天"),
+        total_days=max(1, int(data.get("total_days", total_days))),
+        status="active",
+    )
+    db.add(plan)
+    await db.flush()
+
+    today = date.today()
+    seen_days: set[int] = set()
+    for t in data.get("tasks", []):
+        try:
+            day = int(t.get("day", 1))
+        except (TypeError, ValueError):
+            day = 1
+        if day in seen_days:
+            continue
+        seen_days.add(day)
+        task = PlanTask(
+            plan_id=plan.id,
+            day_index=day,
+            scheduled_date=(today + timedelta(days=day - 1)).strftime("%Y-%m-%d"),
+            title=str(t.get("title", "学习任务"))[:160],
+            description=str(t.get("description", "")),
+            task_type=t.get("type", "learn") if t.get("type") in ("learn", "practice", "review", "chat") else "learn",
+            document_id=None,
+        )
+        db.add(task)
+
+    prev = (await db.execute(
+        select(LearningPlan).where(
+            LearningPlan.user_id == user.id, LearningPlan.status == "active"
+        )
+    )).scalars().all()
+    for p in prev:
+        if p.id != plan.id:
+            p.status = "paused"
+    user.active_plan_id = plan.id
+
+    await db.commit()
+    await db.refresh(plan)
+    db.add(StudyLog(user_id=user.id, kind="plan", detail=f"一键生成了计划「{plan.title}」", points=8))
+    await db.commit()
+    return plan
+
+
 async def adjust_plan(db: AsyncSession, user: User) -> LearningPlan:
     """动态调整计划：根据任务完成、做题正确率、待复习闪卡，重排一份从今天开始的新计划。
 

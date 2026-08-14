@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Input, Button, Space, Card, Tag, Progress, Modal, Form, InputNumber, message, Spin,
+  Input, Button, Space, Card, Tag, Progress, Modal, Form, InputNumber, message, Spin, Tooltip,
 } from 'antd'
 import {
   SendOutlined, ThunderboltOutlined, CalendarOutlined, CheckOutlined, PlusOutlined, FireOutlined,
@@ -18,6 +18,8 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<any>(null)
   const [checkin, setCheckin] = useState<any>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [dataReady, setDataReady] = useState(false)  // 区分"加载中"与"数据为空"
   const [planOpen, setPlanOpen] = useState(false)
   const [planning, setPlanning] = useState(false)
   const [profileForm] = Form.useForm()
@@ -28,6 +30,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
     try {
       const s = await api.getStatus()
       setStatus(s)
+      setLoadError(false)
       profileForm.setFieldsValue({
         goal: s.user?.goal,
         goal_detail: s.user?.goal_detail,
@@ -36,7 +39,9 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
       if (!s.user?.onboarded) setPlanOpen(true)
       const c = await api.getCheckin()
       setCheckin(c)
-    } catch { /* backend not ready */ }
+    } catch {
+      setLoadError(true)
+    }
   }
 
   const doCheckin = async () => {
@@ -64,6 +69,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
       setMessages(msgs)
     }
     await loadStatus()
+    setDataReady(true)
   }
 
   useEffect(() => { init() }, [])
@@ -122,6 +128,16 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
     loadStatus()
   }
 
+  if (!dataReady) return <Spin style={{ display: 'block', marginTop: 120 }} size="large" />
+
+  if (loadError) return (
+    <div style={{ maxWidth: 400, margin: '80px auto', textAlign: 'center' }}>
+      <h3>⚠️ 无法连接到后端</h3>
+      <p style={{ color: '#999' }}>请确认后端服务已启动（start.bat），然后重试</p>
+      <Button type="primary" onClick={() => { setLoadError(false); setDataReady(false); init() }}>重新加载</Button>
+    </div>
+  )
+
   if (!status) return <Spin style={{ display: 'block', marginTop: 120 }} size="large" />
 
   const todayTasks = status.today_tasks || []
@@ -134,10 +150,12 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
         <span style={{ fontSize: 30 }}>🔥</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600 }}>
-            连续打卡 <b style={{ color: '#fa8c16' }}>{checkin?.streak ?? 0}</b> 天
+            连续打卡 <b style={{ color: '#fa8c16' }}>{dataReady ? (checkin?.streak ?? 0) : '…'}</b> 天
           </div>
           <div style={{ color: '#999', fontSize: 12 }}>
-            {checkin?.checked_today ? '今天已打卡 ✓，明天继续，别断链子！' : '今天还没打卡，学一点就来打个卡吧'}
+            {!dataReady ? '加载中…'
+              : checkin?.checked_today ? '今天已打卡 ✓，明天继续，别断链子！'
+              : '今天还没打卡，学一点就来打个卡吧'}
           </div>
         </div>
         <Button
@@ -210,12 +228,14 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
             </div>
           </div>
           <div style={{ marginLeft: 'auto' }}>
-            <Button
-              type="primary" size="small" icon={<ThunderboltOutlined />}
-              disabled={!status.user?.goal} onClick={() => setPlanOpen(true)}
-            >
-              {plan ? '重新制定计划' : '生成学习计划'}
-            </Button>
+            <Tooltip title={!status.user?.goal ? '请先在下方对话中告诉小书虫你的学习目标' : (plan ? '重新生成学习计划' : '根据目标生成个性化学习计划')}>
+              <Button
+                type="primary" size="small" icon={<ThunderboltOutlined />}
+                disabled={!status.user?.goal} onClick={() => setPlanOpen(true)}
+              >
+                {plan ? '重新制定计划' : '生成学习计划'}
+              </Button>
+            </Tooltip>
           </div>
         </div>
 
@@ -252,6 +272,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
           >
             发送
           </Button>
+          <div style={{ fontSize: 11, color: '#bbb', textAlign: 'right', marginTop: 3 }}>Enter 发送 · Shift+Enter 换行</div>
         </div>
       </div>
 

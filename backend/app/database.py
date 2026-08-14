@@ -44,6 +44,9 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_columns)
     await _ensure_default_project()
+    await _migrate_project_categories()
+    await _ensure_ncre_course()
+    await _ensure_ncre_c()
     logger.info("Database initialized at %s", settings.database_url)
 
 
@@ -71,6 +74,7 @@ _COLUMN_MIGRATIONS = {
     "questions": [
         ("discarded", "ALTER TABLE questions ADD COLUMN discarded BOOLEAN DEFAULT 0"),
         ("in_mistake_book", "ALTER TABLE questions ADD COLUMN in_mistake_book BOOLEAN DEFAULT 0"),
+        ("subtype", "ALTER TABLE questions ADD COLUMN subtype VARCHAR(16) DEFAULT ''"),
     ],
     "flashcards": [
         ("discarded", "ALTER TABLE flashcards ADD COLUMN discarded BOOLEAN DEFAULT 0"),
@@ -91,8 +95,39 @@ _COLUMN_MIGRATIONS = {
     "projects": [
         ("is_public", "ALTER TABLE projects ADD COLUMN is_public BOOLEAN DEFAULT 0"),
         ("blank_enabled", "ALTER TABLE projects ADD COLUMN blank_enabled BOOLEAN DEFAULT 0"),
+        ("kanban_enabled", "ALTER TABLE projects ADD COLUMN kanban_enabled BOOLEAN DEFAULT 0"),
+        ("subject", "ALTER TABLE projects ADD COLUMN subject VARCHAR(64) DEFAULT ''"),
+        ("category", "ALTER TABLE projects ADD COLUMN category VARCHAR(64) DEFAULT ''"),
+        ("category_sub", "ALTER TABLE projects ADD COLUMN category_sub VARCHAR(64) DEFAULT ''"),
+        ("learn_count", "ALTER TABLE projects ADD COLUMN learn_count INTEGER DEFAULT 0"),
+        ("star_count", "ALTER TABLE projects ADD COLUMN star_count INTEGER DEFAULT 0"),
+        ("fork_count", "ALTER TABLE projects ADD COLUMN fork_count INTEGER DEFAULT 0"),
+    ],
+    "schedule_slots": [
+        ("notify_on_start", "ALTER TABLE schedule_slots ADD COLUMN notify_on_start BOOLEAN DEFAULT 0"),
+        ("completed", "ALTER TABLE schedule_slots ADD COLUMN completed BOOLEAN DEFAULT 0"),
     ],
 }
+
+
+async def _migrate_project_categories():
+    """旧数据迁移：把旧 subject 值归位到三级分类（门类/一级学科）。"""
+    from app.core.categories import legacy_mapping
+    from app.models import Project
+
+    async with async_session() as db:
+        projects = (await db.execute(
+            select(Project).where(Project.category == "")
+        )).scalars().all()
+        changed = 0
+        for p in projects:
+            mapped = legacy_mapping(p.subject or "")
+            if mapped:
+                p.category, p.category_sub = mapped
+                changed += 1
+        if changed:
+            await db.commit()
+            logger.info("Migrated %d projects into 学科门类分类", changed)
 
 
 async def ensure_default_project(db: AsyncSession):
@@ -106,6 +141,20 @@ async def ensure_default_project(db: AsyncSession):
         db.add(proj)
         await db.flush()
     return proj
+
+
+async def _ensure_ncre_course():
+    """种入「计算机二级 · Python」备考课程书（幂等，见 app.core.ncre_python）。"""
+    from app.core.ncre_python import ensure_ncre_course
+
+    await ensure_ncre_course()
+
+
+async def _ensure_ncre_c():
+    """种入「计算机二级 · C 语言」备考课程书（幂等，见 app.core.ncre_c）。"""
+    from app.core.ncre_c import ensure_ncre_c
+
+    await ensure_ncre_c()
 
 
 async def _ensure_default_project():

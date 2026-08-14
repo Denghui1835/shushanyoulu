@@ -77,6 +77,7 @@ class Question(Base):
     answer: Mapped[str] = mapped_column(Text, default="")
     explanation: Mapped[str] = mapped_column(Text, default="")
     source_text: Mapped[str] = mapped_column(Text, default="")  # 溯源
+    subtype: Mapped[str] = mapped_column(String(16), default="")  # 操作题子型：basic/applied/comprehensive（模拟考试用）
     # 题目管理：discarded=已弃用（软删除，列表默认隐藏，可恢复）；in_mistake_book=已加入错题本
     discarded: Mapped[bool] = mapped_column(default=False, index=True)
     in_mistake_book: Mapped[bool] = mapped_column(default=False, index=True)

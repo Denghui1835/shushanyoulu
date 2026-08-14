@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Tag, Space, Empty, Spin, Popconfirm, message, Progress, Collapse } from 'antd'
 import { SoundOutlined, DeleteOutlined, ReloadOutlined, PlayCircleOutlined } from '@ant-design/icons'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 
 interface PodcastItem {
@@ -19,6 +20,8 @@ interface PodcastItem {
 
 /** 我的播客：按文档分组的播客库，可播放 / 删除 / 重新生成文稿。 */
 export default function PodcastLibraryPage() {
+  const [params] = useSearchParams()
+  const projectId = params.get('project') || ''   // 从书里进入时，只显示这本书的播客
   const [podcasts, setPodcasts] = useState<PodcastItem[]>([])
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({})
@@ -26,12 +29,25 @@ export default function PodcastLibraryPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.listPodcasts()
-      setPodcasts(res.podcasts || [])
+      let list = (await api.listPodcasts()).podcasts || []
+      if (projectId) {
+        const docs = await api.listDocuments(projectId)
+        const ids = new Set(docs.map((d: any) => d.id))
+        list = list.filter(p => ids.has(p.document_id))
+      }
+      setPodcasts(list)
     } finally { setLoading(false) }
-  }, [])
+  }, [projectId])
 
   useEffect(() => { load() }, [load])
+
+  // 自动刷新：有「生成中」的播客时每 8 秒静默拉一次
+  useEffect(() => {
+    const hasGenerating = podcasts.some(p => p.status === 'generating')
+    if (!hasGenerating) return
+    const timer = setInterval(() => { load() }, 8000)
+    return () => clearInterval(timer)
+  }, [podcasts, load])
 
   const remove = async (p: PodcastItem) => {
     await api.deletePodcast(p.document_id, p.unit_index)

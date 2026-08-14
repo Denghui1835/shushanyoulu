@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Select, Button, Space, Switch, Tabs, Modal, Input, message, Spin, Tag, Tooltip, Segmented, Empty,
+  Select, Button, Space, Switch, Modal, Input, message, Spin, Tag, Tooltip, Segmented, Empty, Drawer,
 } from 'antd'
 import {
   LeftOutlined, RightOutlined, SoundOutlined, ReadOutlined, BookOutlined, PlayCircleOutlined, PauseCircleOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -31,6 +32,7 @@ export default function ReadingPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [cur, setCur] = useState(0)
   const [loadingContent, setLoadingContent] = useState(false)
+  const [loadErr, setLoadErr] = useState('')
   const [blankEnabled, setBlankEnabled] = useState(false)  // 按书配置：是否开启「关键词挖空」
 
   // 批注
@@ -51,7 +53,9 @@ export default function ReadingPage() {
 
   // 百宝箱（可折叠悬浮面板）
   const [baibaoOpen, setBaibaoOpen] = useState(false)
+  // 批注/总结/AI播客：顶部细导航栏 + 右侧抽屉（原常驻右侧栏改版）
   const [sidebarTab, setSidebarTab] = useState('ann')
+  const [panelOpen, setPanelOpen] = useState(false)
 
   // 阅读视图：原文件（原生渲染） / 文本（可批注） / 挖空（关键词背诵）
   const [viewMode, setViewMode] = useState<'native' | 'text' | 'blank'>('native')
@@ -88,6 +92,7 @@ export default function ReadingPage() {
 
   const loadDocData = async () => {
     setLoadingContent(true)
+    setLoadErr('')
     setCur(0); setJump(null)
     try {
       const [content, anns, sums] = await Promise.all([
@@ -101,6 +106,8 @@ export default function ReadingPage() {
       const map: Record<string, SummaryItem> = {}
       for (const s of sums) map[summaryKey(s.scope, s.unit_index ?? undefined)] = s
       setSummaries(map)
+    } catch (e: any) {
+      setLoadErr(e?.response?.data?.detail || e?.message || '加载内容失败，请稍后重试')
     } finally { setLoadingContent(false) }
   }
 
@@ -132,11 +139,11 @@ export default function ReadingPage() {
 
   const toggleOverall = (on: boolean) => {
     setOverallOn(on)
-    if (on) ensureSummary('overall')
+    if (on) { setSidebarTab('sum'); setPanelOpen(true); ensureSummary('overall') }  // 弹出「总结」抽屉看进度
   }
   const togglePage = (on: boolean) => {
     setPageOn(on)
-    if (on) ensureSummary('page')
+    if (on) { setSidebarTab('sum'); setPanelOpen(true); ensureSummary('page') }
   }
 
   const overallItem = summaries['overall'] || null
@@ -145,18 +152,24 @@ export default function ReadingPage() {
   const conceptItem = summaries['concept'] || null
 
   // ---------- 百宝箱入口 ----------
+  // 打开面板：顶部导航栏页签 → 设当前页签 + 弹出抽屉；已打开同一页签则收起
+  const openPanel = (tab: string) => {
+    if (panelOpen && sidebarTab === tab) { setPanelOpen(false); return }
+    if (isPdfFull) setViewMode('text')  // 全页浏览时切回文本视图，避免抽屉叠在 PDF 上
+    setSidebarTab(tab)
+    setPanelOpen(true)
+  }
   const onGenerateStory = async () => {
     setSidebarTab('sum')
+    setPanelOpen(true)
     await ensureSummary('story')
   }
   const onGenerateConcept = async () => {
     setSidebarTab('sum')
+    setPanelOpen(true)
     await ensureSummary('concept')
   }
-  const onOpenPodcast = () => {
-    if (isPdfFull) setViewMode('text')  // 全页浏览时切回文本视图以显示侧栏
-    setSidebarTab('podcast')
-  }
+  const onOpenPodcast = () => openPanel('podcast')
 
   // ---------- 批注 ----------
   const onSelectText = (start: number, end: number, text: string) => {
@@ -264,13 +277,44 @@ export default function ReadingPage() {
         />
       </div>
 
+      {/* 批注/总结/AI播客：顶部细导航栏（sticky，正文滚动时保持不动，不再占用右侧大块空间） */}
+      {!isPdfFull && docId && (
+        <div className="yq-read-navbar">
+          <span style={{ fontSize: 12, color: '#8c6ff0', background: '#f4f0ff', padding: '1px 8px', borderRadius: 10, marginRight: 4 }}>
+            AI 工具
+          </span>
+          {[
+            { key: 'ann', icon: <ReadOutlined />, label: `批注 (${annotations.length})` },
+            { key: 'sum', icon: <FileTextOutlined />, label: '总结' },
+            { key: 'podcast', icon: <SoundOutlined />, label: 'AI 播客' },
+          ].map(t => (
+            <Button key={t.key} type={panelOpen && sidebarTab === t.key ? 'primary' : 'text'} size="small"
+              icon={t.icon} onClick={() => openPanel(t.key)}>
+              {t.label}
+            </Button>
+          ))}
+          <span style={{ fontSize: 11, color: '#bbb', marginLeft: 8 }}>点按页签在右侧展开，正文不再被挤占</span>
+        </div>
+      )}
+
       <div style={isPdfFull
         ? { display: 'flex', gap: 0, alignItems: 'stretch', minHeight: 'calc(100vh - 180px)' }
         : { display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         {/* 阅读区：PDF 全页浏览时全宽无卡片 */}
         <div className={isPdfFull ? 'yq-reading-full' : 'page-card'} style={{ flex: 1, minWidth: 0 }}>
-          {loadingContent ? <Spin style={{ display: 'block', margin: 60 }} /> : !curUnit ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>先在「资料库」上传一份文档</div>
+          {loadingContent ? <div style={{ textAlign: 'center', padding: 60, color: '#999' }}><Spin /><div style={{ marginTop: 12 }}>正在加载内容…</div></div> : loadErr ? (
+            <div style={{ textAlign: 'center', padding: 60 }}>
+              <h3 style={{ color: '#ff4d4f' }}>加载失败</h3>
+              <p style={{ color: '#999' }}>{loadErr}</p>
+              <Button onClick={loadDocData}>重试</Button>
+            </div>
+          ) : !curUnit ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+              先在「资料库」上传一份文档
+              <div style={{ marginTop: 12 }}>
+                <Button onClick={() => navigate('/bookshelf')}>去上传资料</Button>
+              </div>
+            </div>
           ) : viewMode === 'native' ? (
             <NativeFileView docId={docId} contentType={currentContentType} full={isPdfFull}
               drawing={drawing} onDrawingChange={setDrawing} />
@@ -295,53 +339,42 @@ export default function ReadingPage() {
           )}
         </div>
 
-        {/* 侧栏：PDF 全页浏览时隐藏 */}
-        {!isPdfFull && docId && (
-          <div className="page-card" style={{ width: 340, flexShrink: 0 }}>
-            <Tabs
-              size="small"
-              activeKey={sidebarTab}
-              onChange={setSidebarTab}
-              items={[
-                {
-                  key: 'ann', label: `批注 (${annotations.length})`,
-                  children: (
-                    <AnnotationPanel
-                      annotations={annotations.filter(a => a.document_id === docId)}
-                      unitTitleOf={idx => units[idx]?.title || `第 ${idx + 1} 节`}
-                      onJump={jumpToAnnotation} onEdit={editAnnotation} onDelete={deleteAnnotation}
-                    />
-                  ),
-                },
-                {
-                  key: 'sum', label: '总结',
-                  children: (
-                    <SummaryPanel
-                      overall={overallItem} page={pageItem} story={storyItem} concept={conceptItem}
-                      onGenerateOverall={() => ensureSummary('overall')}
-                      onGeneratePage={() => ensureSummary('page')}
-                      onGenerateStory={onGenerateStory}
-                      onGenerateConcept={onGenerateConcept}
-                      onOpenPodcast={onOpenPodcast}
-                      generatingOverall={genOverall} generatingPage={genPage}
-                      generatingStory={genStory} generatingConcept={genConcept}
-                      unitTitle={curUnit?.title || ''}
-                    />
-                  ),
-                },
-                {
-                  key: 'podcast', label: 'AI 播客',
-                  children: curUnit ? (
-                    <PodcastPanel docId={docId} unitIndex={curUnit.index} unitTitle={curUnit.title} />
-                  ) : (
-                    <Empty description="当前没有可生成播客的内容" />
-                  ),
-                },
-              ]}
-            />
-          </div>
-        )}
       </div>
+
+      {/* 批注/总结/AI播客 内容抽屉（原右侧栏按需弹出，正文不再被挤占） */}
+      <Drawer
+        title={sidebarTab === 'ann' ? `批注 (${annotations.length})`
+          : sidebarTab === 'sum' ? '总结' : 'AI 播客'}
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        width={Math.min(400, window.innerWidth * 0.92)}
+      >
+        {sidebarTab === 'ann' && (
+          <AnnotationPanel
+            annotations={annotations.filter(a => a.document_id === docId)}
+            unitTitleOf={idx => units[idx]?.title || `第 ${idx + 1} 节`}
+            onJump={jumpToAnnotation} onEdit={editAnnotation} onDelete={deleteAnnotation}
+          />
+        )}
+        {sidebarTab === 'sum' && (
+          <SummaryPanel
+            overall={overallItem} page={pageItem} story={storyItem} concept={conceptItem}
+            onGenerateOverall={() => ensureSummary('overall')}
+            onGeneratePage={() => ensureSummary('page')}
+            onGenerateStory={onGenerateStory}
+            onGenerateConcept={onGenerateConcept}
+            onOpenPodcast={onOpenPodcast}
+            generatingOverall={genOverall} generatingPage={genPage}
+            generatingStory={genStory} generatingConcept={genConcept}
+            unitTitle={curUnit?.title || ''}
+          />
+        )}
+        {sidebarTab === 'podcast' && (curUnit ? (
+          <PodcastPanel docId={docId} unitIndex={curUnit.index} unitTitle={curUnit.title} />
+        ) : (
+          <Empty description="当前没有可生成播客的内容" />
+        ))}
+      </Drawer>
 
       {/* 百宝箱（可折叠悬浮面板） */}
       <div className={`yq-baibao ${baibaoOpen ? 'open' : ''}`}>
@@ -361,7 +394,7 @@ export default function ReadingPage() {
             <div className="yq-baibao-grid">
               <div className="yq-baibao-tile" onClick={() => {
                 if (viewMode !== 'text') { setViewMode('text'); message.info('批注请在「文本」视图进行') }
-                setSidebarTab('ann')
+                openPanel('ann')
               }}><span className="tile-icon">💬</span><span className="tile-label">批注</span></div>
               <div className="yq-baibao-tile" onClick={() => {
                 const target = currentContentType === 'pdf' ? 'native' : 'text'

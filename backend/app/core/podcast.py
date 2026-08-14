@@ -30,18 +30,33 @@ _TURN_RE = re.compile(r"^\s*(主播[AB])\s*[：:]\s*(.+)$")
 # ---------------------------------------------------------------- 文稿解析
 
 def parse_turns(content: str) -> list[dict]:
-    """把文稿解析为说话轮次 [{speaker, text}]；非「主播A/B：」行跳过。
+    """把文稿解析为说话轮次 [{speaker, text}]；非「主播A/B：」行跳过并告警。
 
     speaker 取「主播A」/「主播B」原样，供 TTS 选音色。
+    超 _MAX_TURNS 时截断并 warn，避免末尾内容静默丢失。
     """
     turns: list[dict] = []
+    non_matching: list[str] = []
     for line in (content or "").splitlines():
-        m = _TURN_RE.match(line.strip())
+        stripped = line.strip()
+        if not stripped:
+            continue
+        m = _TURN_RE.match(stripped)
         if not m:
+            non_matching.append(stripped)
             continue
         text = m.group(2).strip()
         if text:
             turns.append({"speaker": m.group(1), "text": text})
+
+    if non_matching:
+        logger.warning("播客文稿有 %d 行非对话格式被丢弃: %s",
+                       len(non_matching), non_matching[:5])
+
+    if len(turns) > _MAX_TURNS:
+        logger.warning("播客文稿超过 %d 轮上限，截断丢弃末尾 %d 轮 — 音频将不完整",
+                       _MAX_TURNS, len(turns) - _MAX_TURNS)
+
     return turns[: _MAX_TURNS]
 
 
@@ -54,19 +69,39 @@ def _is_valid_script(content: str) -> bool:
 
 # ---------------------------------------------------------------- 生成
 
-def _build_script_prompt(doc_title: str, unit_title: str, src: str) -> str:
-    return f"""请把学习资料《{doc_title}》中「{unit_title}」这一部分，做成一期「双人 AI 播客」的对话文稿。
+def _build_script_prompt(doc_title: str, unit_title: str, src: str, truncated: bool = False) -> str:
+    truncation_hint = ""
+    if truncated:
+        truncation_hint = (
+            "\n注意：以上资料内容较长，已被截断为前 {max_chars} 字。"
+            "请从**全篇**中提炼 3-6 个最核心的知识点来展开对谈，"
+            "不要只覆盖截断部分的前半段内容——末尾的要点同样重要。"
+        ).format(max_chars=_MAX_SRC_CHARS)
+    return f"""你是一档知识播客「书山电台」的编剧。请为《{doc_title}》中「{unit_title}」这一期写一份双人对谈文稿。
 
-两位主播「主播A」（温暖亲切的女声）与「主播B」（沉稳爽朗的男声）围绕这部分内容自然对谈，
-像两个朋友在聊天，而不是照本宣科地朗读课文。
+=== 主播人设 ===
+主播A（女生，晓晓）：好奇心强，喜欢用生动的类比和故事来解释概念，语速略快、情绪饱满。常用句式：「哇，这个太有意思了！」「那如果……会怎么样？」「让我用一个生活中的例子来解释……」
 
-要求：
-- 口语化、有情感起伏、语气自然；多用过渡衔接语（如「接下来我们聊聊…」「说到这儿，我突然想到…」「那这一点要怎么记呢？」「对对对，我补充一句…」）
-- 覆盖本部分的核心知识点、重点与易错点，穿插一问一答、互相补充、互相打趣
+主播B（男生，云希）：逻辑清晰，喜欢追问"为什么"，善于点出反直觉的洞察和常见误区，偶尔打趣主播A。常用句式：「等等，这里有个关键点……」「很多人会这样想，但其实……」「我补充一个容易被忽略的细节……」
+
+=== 结构要求 ===
+1. **开场钩子**（2-3 句）：用一个问题/场景/反常识现象引入，让听众立刻产生兴趣。禁止说「今天我们来聊聊XX」这种平淡开场
+2. **核心展开**：围绕 2-4 个核心观点展开对谈，每个观点先解释再延伸
+3. **易错点拨**：至少点名 1-2 个常见误区或学生容易踩的坑
+4. **收尾金句**：用一句话总结本期的核心收获，让听众听完想记笔记
+
+=== 对话风格 ===
+- 像两个真正懂行的人在咖啡馆聊天——有笑声、有争论、有即兴发挥，不是在念PPT
+- 能举生活例子的绝不干讲概念；能一句话说清的绝不绕弯子
+- 适时表达惊讶、赞同或善意的质疑（「真的吗？」「我觉得还可以换个角度……」「对，而且我刚好想到……」）
+- 不要堆砌「首先/其次/最后」，用自然过渡代替
+
+=== 格式要求 ===
 - 每句独立成行，行首严格以「主播A：」或「主播B：」开头（半角冒号），句末用中文标点
 - 两位主播交替发言，同一人连续不超过 3 句
-- 全文 800-1600 字（约 2-4 分钟播讲），不要出现「主播A」之外的主持人角色
+- 全文 1000-1800 字（口播约 3-5 分钟），信息密度要高——每一轮对话都在推进话题，不要原地绕圈
 
+{truncation_hint}
 资料内容：
 {src}"""
 
@@ -99,9 +134,13 @@ async def generate_podcast_script(db: AsyncSession, document: Document, unit_ind
         if not unit:
             raise ValueError(f"章节单元 {unit_index} 不存在或无内容")
         src = unit["text"][: _MAX_SRC_CHARS]
+        source_truncated = len(unit["text"]) > _MAX_SRC_CHARS
+        if source_truncated:
+            logger.warning("播客源文本过长（%d 字），截断为 %d 字。LLM 可能看不到末尾内容",
+                           len(unit["text"]), _MAX_SRC_CHARS)
         if len(src) < 20:
             raise ValueError("该章节文本过短，不足以生成播客")
-        prompt = _build_script_prompt(document.title, unit["title"], src)
+        prompt = _build_script_prompt(document.title, unit["title"], src, truncated=source_truncated)
         adapter = api_client.get_adapter(settings.default_model)
         resp = await adapter.chat_completion(
             [{"role": "user", "content": prompt}],

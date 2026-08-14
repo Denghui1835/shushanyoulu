@@ -26,10 +26,21 @@ export const api = {
   logout: () => http.post('/auth/logout').then(r => r.data),
   me: () => http.get('/auth/me').then(r => r.data),
   // 社区广场
-  getPlaza: () => http.get('/community/plaza').then(r => r.data),
+  getCategories: () => http.get('/community/categories').then(r => r.data),
+  getPlaza: (params?: any) => http.get('/community/plaza', { params }).then(r => r.data),
   publishProject: (id: string) => http.post(`/community/projects/${id}/publish`).then(r => r.data),
   unpublishProject: (id: string) => http.post(`/community/projects/${id}/unpublish`).then(r => r.data),
+  patchProject: (id: string, data: any) => http.patch(`/community/projects/${id}`, data).then(r => r.data),
   learnProject: (id: string) => http.post(`/community/plaza/${id}/learn`).then(r => r.data),
+  getPlazaDetail: (id: string) => http.get(`/community/plaza/${id}`).then(r => r.data),
+  starProject: (id: string) => http.post(`/community/plaza/${id}/star`).then(r => r.data),
+  unstarProject: (id: string) => http.post(`/community/plaza/${id}/unstar`).then(r => r.data),
+  forkProject: (id: string) => http.post(`/community/plaza/${id}/fork`).then(r => r.data),
+  getSuggestions: (id: string) => http.get(`/community/plaza/${id}/suggestions`).then(r => r.data),
+  createSuggestion: (id: string, content: string) => http.post(`/community/plaza/${id}/suggestions`, { content }).then(r => r.data),
+  acceptSuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/accept`).then(r => r.data),
+  applySuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/applied`).then(r => r.data),
+  rejectSuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/reject`).then(r => r.data),
 
   // 个人中心
   getProfileInfo: () => http.get('/profile').then(r => r.data),
@@ -50,6 +61,28 @@ export const api = {
     http.get('/companion/messages', { params: { session_id: sessionId } }).then(r => r.data),
   createPlan: (data?: any) => http.post('/companion/plan', data).then(r => r.data),
   adjustPlan: () => http.post('/companion/plan/adjust').then(r => r.data),
+  generateWizardPlan: (data: { courses: string[]; time_slots: string[]; daily_minutes: number; total_days: number }) =>
+    http.post('/companion/plan/wizard', data).then(r => r.data),
+
+  // 深度教学（讲→考→判→评）
+  getCurriculum: () => http.get('/lesson/curriculum').then(r => r.data),
+  getLessonProgress: () => http.get('/lesson/progress').then(r => r.data),
+  setLessonProgress: (data: { subject: string; topic: string; status: string }) =>
+    http.post('/lesson/progress', data).then(r => r.data),
+
+  // 老教授课堂（一对一交互式授课）
+  getCourseOutline: (subject: string) => http.get('/course', { params: { subject } }).then(r => r.data),
+  startCourseLesson: (subject: string, topic: string) =>
+    http.post('/course/lesson', { topic }, { params: { subject } }).then(r => r.data),
+  answerCourseLesson: (subject: string, data: { topic: string; kind: string; answer: string; attempt: number }) =>
+    http.post('/course/answer', data, { params: { subject } }).then(r => r.data),
+  completeCourseLesson: (subject: string, topic: string) =>
+    http.post('/course/complete', { topic }, { params: { subject } }).then(r => r.data),
+  startLesson: (data: { subject: string; topic: string }) =>
+    http.post('/lesson/start', data).then(r => r.data),
+  answerLesson: (data: { lesson_id: string; answer: string }) =>
+    http.post('/lesson/answer', data).then(r => r.data),
+  endLesson: (id: string) => http.post(`/lesson/${id}/end`).then(r => r.data),
 
   // projects（书架中的书）
   listProjects: () => http.get('/projects').then(r => r.data),
@@ -122,6 +155,11 @@ export const api = {
     http.post(`/questions/${docId}/generate`, null, { params: { count } }).then(r => r.data),
   gradeQuestion: (qid: string, userAnswer: string) =>
     http.post(`/questions/${qid}/grade`, { user_answer: userAnswer }).then(r => r.data),
+  // 全真模拟考试（严格仿 NCRE-2：120 分钟、40 选择 + 60 操作；subject=python/c）
+  getMockExam: (subject = 'python') => http.get('/questions/mock', { params: { subject } }).then(r => r.data),
+  gradeMockExam: (answers: Record<string, string>, subject = 'python') =>
+    http.post('/questions/mock/grade', { answers, subject }).then(r => r.data),
+
   // 题目管理：弃用/恢复、错题本
   discardQuestion: (qid: string) => http.post(`/questions/${qid}/discard`).then(r => r.data),
   restoreQuestion: (qid: string) => http.post(`/questions/${qid}/restore`).then(r => r.data),
@@ -204,6 +242,19 @@ export const api = {
   // 撤回上一步修改
   undoPodcastScript: (docId: string, unitIndex: number) =>
     http.post(`/podcast/${docId}/undo-script`, null, { params: { unit_index: unitIndex } }).then(r => r.data),
+
+  // 统计看板
+  getDashboardStats: () => http.get('/stats/dashboard').then(r => r.data),
+
+  // 通用裸调用（看板等动态路径用；http 已含 /api baseURL）
+  callRaw: (path: string, opts?: { method?: string; body?: any }) => {
+    const method = (opts?.method || 'GET').toLowerCase()
+    const url = path.startsWith('/') ? path : `/${path}`
+    if (method === 'get') return http.get(url).then(r => r.data)
+    if (method === 'delete') return http.delete(url).then(r => r.data)
+    if (method === 'put') return http.put(url, opts?.body).then(r => r.data)
+    return http.post(url, opts?.body).then(r => r.data)
+  },
 }
 
 /** 解析 SSE 响应为事件对象序列。 */

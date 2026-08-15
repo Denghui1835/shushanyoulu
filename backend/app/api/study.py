@@ -1,7 +1,8 @@
 """学习计划与今日任务 API."""
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,3 +113,51 @@ async def do_checkin(db: AsyncSession = Depends(get_db)):
                               .where(CheckIn.user_id == LOCAL_USER_ID))).scalar()
     return {"checked_today": True, "streak": await _streak(db, LOCAL_USER_ID),
             "total": int(total or 0), "points_gained": _CHECKIN_POINTS}
+
+
+# ---------------------------------------------------------------- 继续学习（最近学习上下文）
+
+class ContextIn(BaseModel):
+    project_id: str | None = None
+    project_title: str | None = None
+    subject: str | None = None
+    topic: str | None = None
+
+
+def _context_payload(u: User) -> dict | None:
+    if not u.last_activity_at:
+        return None
+    return {
+        "project_id": u.last_project_id,
+        "project_title": u.last_project_title,
+        "subject": u.last_subject,
+        "topic": u.last_topic,
+        "updated_at": u.last_activity_at.isoformat(),
+    }
+
+
+@router.get("/context")
+async def get_context(db: AsyncSession = Depends(get_db)):
+    """最近学习上下文（首页「继续学习」用）。"""
+    user = await db.get(User, LOCAL_USER_ID)
+    return {"context": _context_payload(user) if user else None}
+
+
+@router.post("/context")
+async def set_context(data: ContextIn, db: AsyncSession = Depends(get_db)):
+    """记录最近学习位置：打开书 / 开始一节课时调用。"""
+    user = await db.get(User, LOCAL_USER_ID)
+    if not user:
+        user = User(id=LOCAL_USER_ID, name="学习者")
+        db.add(user)
+    if data.project_id is not None:
+        user.last_project_id = data.project_id or None
+    if data.project_title is not None:
+        user.last_project_title = data.project_title or None
+    if data.subject is not None:
+        user.last_subject = data.subject or None
+    if data.topic is not None:
+        user.last_topic = data.topic or None
+    user.last_activity_at = datetime.now()
+    await db.commit()
+    return {"context": _context_payload(user)}

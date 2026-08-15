@@ -13,6 +13,7 @@
 import json
 import logging
 import re
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import select
@@ -418,6 +419,10 @@ async def start_lesson(db: AsyncSession, user: User, subject: str, topic: str) -
     else:
         db.add(TopicProgress(user_id=user.id, subject=subject, topic=topic, status="learning", times=1))
 
+    # 记录最近学习位置（首页「继续学习」）
+    user.last_subject = subject
+    user.last_topic = topic
+    user.last_activity_at = datetime.now()
     await db.commit()
     await db.refresh(lesson)
 

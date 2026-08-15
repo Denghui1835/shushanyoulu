@@ -27,6 +27,11 @@ class User(Base):
     api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)  # 用户自有 LLM Key（fernet 加密）
     api_base_url: Mapped[str | None] = mapped_column(String(256), nullable=True)
     api_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_project_id: Mapped[str | None] = mapped_column(String(36), nullable=True)      # 最近学习的书
+    last_project_title: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_subject: Mapped[str | None] = mapped_column(String(64), nullable=True)         # 最近学习的科目/考点
+    last_topic: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_activity_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     @property

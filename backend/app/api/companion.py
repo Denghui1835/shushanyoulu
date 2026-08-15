@@ -223,6 +223,13 @@ async def status(db: AsyncSession = Depends(get_db)):
     return {
         "user": {"name": user.name, "goal": user.goal, "daily_minutes": user.daily_minutes,
                  "onboarded": user.is_onboarded},
+        "continue": ({
+            "project_id": user.last_project_id,
+            "project_title": user.last_project_title,
+            "subject": user.last_subject,
+            "topic": user.last_topic,
+            "updated_at": user.last_activity_at.isoformat() if user.last_activity_at else None,
+        } if user.last_activity_at else None),
         "plan": ctx["plan"],
         "today_tasks": ctx["today_tasks"],
         "due_cards_count": due,

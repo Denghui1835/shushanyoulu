@@ -7,6 +7,7 @@
 import json
 import logging
 import re
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -143,6 +144,9 @@ async def start_lesson(db: AsyncSession, user: User, subject: str, topic: str) -
     else:
         db.add(TopicProgress(user_id=user.id, subject=subject, topic=topic, status="learning", times=1))
     db.add(StudyLog(user_id=user.id, kind="lesson", detail=f"老教授课堂：开始「{subject}·{topic}」", points=3))
+    user.last_subject = subject
+    user.last_topic = topic
+    user.last_activity_at = datetime.now()
     await db.commit()
 
     card = lesson.get_card()

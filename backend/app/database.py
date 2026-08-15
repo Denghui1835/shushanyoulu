@@ -91,6 +91,11 @@ _COLUMN_MIGRATIONS = {
         ("api_key_encrypted", "ALTER TABLE users ADD COLUMN api_key_encrypted TEXT"),
         ("api_base_url", "ALTER TABLE users ADD COLUMN api_base_url VARCHAR(256)"),
         ("api_model", "ALTER TABLE users ADD COLUMN api_model VARCHAR(128)"),
+        ("last_project_id", "ALTER TABLE users ADD COLUMN last_project_id VARCHAR(36)"),
+        ("last_project_title", "ALTER TABLE users ADD COLUMN last_project_title VARCHAR(128)"),
+        ("last_subject", "ALTER TABLE users ADD COLUMN last_subject VARCHAR(64)"),
+        ("last_topic", "ALTER TABLE users ADD COLUMN last_topic VARCHAR(128)"),
+        ("last_activity_at", "ALTER TABLE users ADD COLUMN last_activity_at DATETIME"),
     ],
     "projects": [
         ("is_public", "ALTER TABLE projects ADD COLUMN is_public BOOLEAN DEFAULT 0"),

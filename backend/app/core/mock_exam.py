@@ -134,11 +134,13 @@ def _essay_ratio(correct_answer: str, user_answer: str) -> float:
 
 
 async def grade_mock_exam(db: AsyncSession, answers: dict[str, str], subject: str | None = None) -> dict:
-    """交卷判分：选择题精确匹配，操作题按重合率给部分分。每题写 QuizRecord。"""
+    """交卷判分：选择题精确匹配，操作题按重合率给部分分。每题写 QuizRecord，
+    错题自动进错题本，并保存一份 MockRecord 成绩记录（供历史/进步曲线）。"""
     exam = await build_mock_exam(db, subject)
 
     result_sections: list[dict] = []
     total = 0.0
+    wrong_count = 0
     for sec in exam["sections"]:
         sec_score = 0.0
         items: list[dict] = []
@@ -158,6 +160,9 @@ async def grade_mock_exam(db: AsyncSession, answers: dict[str, str], subject: st
                 score = max_score if correct else 0.0
                 sec_score += score
                 total += score
+                if not correct:
+                    row.in_mistake_book = True
+                    wrong_count += 1
                 db.add(QuizRecord(question_id=qid, user_answer=user_answer, correct=correct))
                 items.append({
                     "id": qid, "qtype": "choice", "question": q["question"], "options": options,
@@ -170,6 +175,9 @@ async def grade_mock_exam(db: AsyncSession, answers: dict[str, str], subject: st
                 correct = ratio >= ESSAY_PASS_RATIO
                 sec_score += score
                 total += score
+                if not correct:
+                    row.in_mistake_book = True
+                    wrong_count += 1
                 db.add(QuizRecord(question_id=qid, user_answer=user_answer, correct=correct))
                 items.append({
                     "id": qid, "qtype": "essay", "question": q["question"], "options": [],
@@ -181,9 +189,23 @@ async def grade_mock_exam(db: AsyncSession, answers: dict[str, str], subject: st
             "score": round(sec_score, 1), "max_score": sec["max_score"], "questions": items,
         })
 
+    record = MockRecord(
+        user_id="local_user",
+        subject=(subject or "python").lower(),
+        total=total,
+        max_score=100.0,
+        passed=total >= PASS_LINE,
+        section_scores=json.dumps(
+            [{"name": s["name"], "score": s["score"], "max_score": s["max_score"]} for s in result_sections],
+            ensure_ascii=False,
+        ),
+    )
+    db.add(record)
     await db.commit()
     total = round(total, 1)
     return {
+        "record_id": record.id,
+        "added_to_mistake_book": wrong_count,
         "title": exam["title"],
         "total": total,
         "max_score": 100.0,

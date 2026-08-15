@@ -43,6 +43,7 @@ export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [points, setPoints] = useState(0)
+  const [collapsed, setCollapsed] = useState(false)
 
   const refreshStatus = async () => {
     try {
@@ -84,7 +85,15 @@ export default function App() {
 
   return (
     <Layout className="yq-layout">
-      <Sider width={210} className="yq-sider" theme="light">
+      <Sider
+        width={210}
+        className="yq-sider"
+        theme="light"
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        breakpoint="lg"
+      >
         <div className="yq-logo">
           <div className="logo-icon">⚡</div>
           <div>

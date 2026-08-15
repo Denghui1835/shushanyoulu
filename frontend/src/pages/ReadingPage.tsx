@@ -406,6 +406,7 @@ export default function ReadingPage() {
               <div className="yq-baibao-tile" onClick={onGenerateConcept}><span className="tile-icon">🧠</span><span className="tile-label">概念总结</span></div>
               <div className="yq-baibao-tile" onClick={() => navigate(`/quiz?doc=${docId}`)}><span className="tile-icon">✅</span><span className="tile-label">练习题</span></div>
               <div className="yq-baibao-tile" onClick={() => navigate(`/flashcards?doc=${docId}`)}><span className="tile-icon">🃏</span><span className="tile-label">闪卡</span></div>
+              <div className="yq-baibao-tile" onClick={() => navigate(`/knowledge?doc=${docId}`)}><span className="tile-icon">🌳</span><span className="tile-label">知识树</span></div>
             </div>
           </div>
         )}

@@ -12,7 +12,7 @@ from app.core.quiz import (
     list_questions as list_questions_core,
 )
 from app.core.mock_exam import build_mock_exam, grade_mock_exam
-from app.models import Question, QuizRecord, Document
+from app.models import Question, QuizRecord, Document, MockRecord
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
 
@@ -43,6 +43,26 @@ async def mock_grade(data: MockGradeIn, db: AsyncSession = Depends(get_db)):
         import logging
         logging.getLogger("yuanqi.api.questions").exception("mock grade failed")
         raise HTTPException(status_code=500, detail=f"判分失败：{e}")
+
+
+@router.get("/mock/history")
+async def mock_history(limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """模拟成绩历史：按时间倒序，供成绩单回看与进步曲线。"""
+    rows = (await db.execute(
+        select(MockRecord).where(MockRecord.user_id == "local_user")
+        .order_by(MockRecord.created_at.desc()).limit(min(limit, 200))
+    )).scalars().all()
+    return {
+        "items": [{
+            "id": r.id,
+            "subject": r.subject,
+            "total": r.total,
+            "max_score": r.max_score,
+            "passed": r.passed,
+            "section_scores": json.loads(r.section_scores or "[]"),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        } for r in rows],
+    }
 
 
 # ---------------------------------------------------------------- 错题本（须在 /{document_id} 之前定义）

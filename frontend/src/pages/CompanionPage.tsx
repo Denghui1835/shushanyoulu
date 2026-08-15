@@ -3,16 +3,18 @@ import {
   Input, Button, Space, Card, Tag, Progress, Modal, Form, InputNumber, message, Spin, Tooltip,
 } from 'antd'
 import {
-  SendOutlined, ThunderboltOutlined, CalendarOutlined, CheckOutlined, PlusOutlined, FireOutlined,
+  SendOutlined, ThunderboltOutlined, CalendarOutlined, CheckOutlined, PlusOutlined, FireOutlined, RightOutlined,
 } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useNavigate } from 'react-router-dom'
 import { api, streamSSE } from '../api'
 import PageHeader from '../components/PageHeader'
 
 type Msg = { id: string; role: string; content: string; streaming?: boolean }
 
 export default function CompanionPage({ onActivity }: { onActivity?: () => void }) {
+  const navigate = useNavigate()
   const [sessionId, setSessionId] = useState('')
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -22,6 +24,7 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
   const [loadError, setLoadError] = useState(false)
   const [dataReady, setDataReady] = useState(false)  // 区分"加载中"与"数据为空"
   const [planOpen, setPlanOpen] = useState(false)
+  const [ctx, setCtx] = useState<any>(null)
   const [planning, setPlanning] = useState(false)
   const [profileForm] = Form.useForm()
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -44,6 +47,10 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
       setLoadError(true)
     }
   }
+
+  useEffect(() => {
+    api.getStudyContext().then(r => setCtx(r?.context || null)).catch(() => {})
+  }, [])
 
   const doCheckin = async () => {
     try {
@@ -178,6 +185,31 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
           </>
         }
       />
+
+      {/* 继续学习 */}
+      {ctx && (
+        <div className="yq-section" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 26 }}>🚀</span>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 600 }}>继续学习</div>
+            <div style={{ color: '#999', fontSize: 13, marginTop: 2 }}>
+              {ctx.topic
+                ? `${ctx.subject || ''} · ${ctx.topic}`
+                : ctx.project_title || '上次学到的位置'}
+            </div>
+          </div>
+          <Button
+            type="primary" icon={<RightOutlined />}
+            onClick={() => navigate(
+              ctx.project_id
+                ? `/project/${ctx.project_id}`
+                : ctx.subject ? `/course?subject=${encodeURIComponent(ctx.subject)}` : '/bookshelf',
+            )}
+          >
+            继续
+          </Button>
+        </div>
+      )}
 
       {/* 状态卡片 */}
       <div className="yq-status-grid">

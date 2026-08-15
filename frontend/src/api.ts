@@ -54,6 +54,9 @@ export const api = {
   wechatUnbind: () => http.post('/auth/wechat/unbind').then(r => r.data),
   // companion
   getStatus: () => http.get('/companion/status').then(r => r.data),
+  getStudyContext: () => http.get('/study/context').then(r => r.data),
+  setStudyContext: (data: { project_id?: string; project_title?: string; subject?: string; topic?: string }) =>
+    http.post('/study/context', data).then(r => r.data),
   getProfile: () => http.get('/companion/profile').then(r => r.data),
   saveProfile: (data: any) => http.post('/companion/profile', data).then(r => r.data),
   getSession: () => http.get('/companion/session').then(r => r.data),
@@ -159,6 +162,7 @@ export const api = {
   getMockExam: (subject = 'python') => http.get('/questions/mock', { params: { subject } }).then(r => r.data),
   gradeMockExam: (answers: Record<string, string>, subject = 'python') =>
     http.post('/questions/mock/grade', { answers, subject }).then(r => r.data),
+  getMockHistory: () => http.get('/questions/mock/history').then(r => r.data),
 
   // 题目管理：弃用/恢复、错题本
   discardQuestion: (qid: string) => http.post(`/questions/${qid}/discard`).then(r => r.data),

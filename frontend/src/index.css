@@ -194,6 +194,54 @@ body {
   margin-top: 5px;
 }
 
+/* 侧边栏折叠态：隐藏文字只留图标 */
+.ant-layout-sider-collapsed .yq-logo .logo-text,
+.ant-layout-sider-collapsed .yq-logo .logo-sub,
+.ant-layout-sider-collapsed .yq-sidebar-footer {
+  display: none;
+}
+.ant-layout-sider-collapsed .yq-logo {
+  padding: 18px 0;
+  justify-content: center;
+}
+
+/* ===== 响应式（窄屏） ===== */
+@media (max-width: 900px) {
+  .yq-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .yq-content {
+    padding: 12px;
+  }
+  .yq-page {
+    padding-bottom: 24px;
+  }
+  .yq-page-header {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .yq-page-header-extra {
+    margin-left: 0;
+    width: 100%;
+  }
+  .yq-chat {
+    height: 520px;
+  }
+  .yq-status-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .yq-baibao {
+    right: 14px;
+    bottom: 72px;
+  }
+  .yq-baibao-panel {
+    width: 280px;
+  }
+}
+
 /* companion chat */
 .yq-chat {
   display: flex; flex-direction: column;

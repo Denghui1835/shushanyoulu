@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type React from 'react'
 import {
   Button, Modal, Form, Input, InputNumber, Upload, Progress, message, Popconfirm,
   Empty, Spin, Space, Tag, Tooltip, List, Select, Segmented, Checkbox, Switch, Result,
@@ -170,6 +171,7 @@ export default function ProjectDetailPage() {
       const d = await api.getProject(id)
       setProject(d.project)
       setChapters(d.documents)
+      api.setStudyContext({ project_id: id, project_title: d.project?.title }).catch(() => {})
     } catch (e: any) {
       setLoadErr(e?.response?.data?.detail || e?.message || '加载项目失败')
     } finally { setLoading(false) }
@@ -650,36 +652,50 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* 学习工具：按书聚合（从零学 → 练 → 考，入门到模拟） */}
-      <div className="yq-section" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600, marginRight: 4 }}>🧰 学习工具：</span>
-        {COURSE_SUBJECTS.includes(project?.subject || '') && (
-          <Button type="primary" ghost icon={<BookOutlined />} onClick={() => navigate(`/course?subject=${encodeURIComponent(project.subject)}`)}>
-            老教授课堂
-          </Button>
-        )}
-        <Button type="primary" ghost icon={<BulbOutlined />} onClick={() => navigate(`/lesson?category=${project?.category || ''}&sub=${project?.category_sub || ''}`)}>
-          深度教学
-        </Button>
-        <Button icon={<EditFilled />} onClick={() => {
-          const qc = chapters.find(c => !c.is_group && (c.title || '').includes('题库'))
-            || chapters.find(c => !c.is_group && (c.question_count || 0) > 0)
-          navigate(qc ? `/quiz?doc=${qc.id}` : '/quiz')
-        }}>
-          刷题练习
-        </Button>
-        <Button icon={<SoundOutlined />} onClick={() => navigate(`/podcasts?project=${id}`)}>
-          播客
-        </Button>
-        {(() => {
-          const mockSubject = MOCK_SUBJECTS[project?.subject || '']
-          const hasBank = chapters.some(c => (c.title || '').includes('题库'))
-          if (!mockSubject || !hasBank) return null
-          return (
-            <Button icon={<ClockCircleOutlined />} onClick={() => navigate(`/mock-exam?subject=${mockSubject}`)}>
-              全真模拟
-            </Button>
-          )
-        })()}
+      <div className="yq-section">
+        <div className="yq-section-title"><span>🧰</span> 学习工具</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+          {(() => {
+            const mockSubject = MOCK_SUBJECTS[project?.subject || '']
+            const hasBank = chapters.some(c => (c.title || '').includes('题库'))
+            const tools: { icon: React.ReactNode; label: string; desc: string; onClick: () => void }[] = []
+            if (COURSE_SUBJECTS.includes(project?.subject || '')) {
+              tools.push({
+                icon: <BookOutlined />, label: '老教授课堂', desc: '从零讲 → 真题 → 练习 → 提问',
+                onClick: () => navigate(`/course?subject=${encodeURIComponent(project.subject)}`),
+              })
+            }
+            tools.push({
+              icon: <BulbOutlined />, label: '深度教学', desc: 'AI 私教一对一带学',
+              onClick: () => navigate(`/lesson?category=${project?.category || ''}&sub=${project?.category_sub || ''}`),
+            })
+            tools.push({
+              icon: <EditFilled />, label: '刷题练习', desc: '客观题 + AI 阅卷',
+              onClick: () => {
+                const qc = chapters.find(c => !c.is_group && (c.title || '').includes('题库'))
+                  || chapters.find(c => !c.is_group && (c.question_count || 0) > 0)
+                navigate(qc ? `/quiz?doc=${qc.id}` : '/quiz')
+              },
+            })
+            tools.push({
+              icon: <SoundOutlined />, label: '播客', desc: '章节生成可听音频',
+              onClick: () => navigate(`/podcasts?project=${id}`),
+            })
+            if (mockSubject && hasBank) {
+              tools.push({
+                icon: <ClockCircleOutlined />, label: '全真模拟', desc: '限时考试 + 成绩单',
+                onClick: () => navigate(`/mock-exam?subject=${mockSubject}`),
+              })
+            }
+            return tools.map(t => (
+              <div key={t.label} className="yq-baibao-tile" onClick={t.onClick} style={{ padding: '14px 8px' }}>
+                <span className="tile-icon">{t.icon}</span>
+                <span className="tile-label">{t.label}</span>
+                <span style={{ fontSize: 11, color: '#9aa1ad', lineHeight: 1.4, textAlign: 'center' }}>{t.desc}</span>
+              </div>
+            ))
+          })()}
+        </div>
       </div>
 
       {/* 视图切换：章节 / 看板 */}

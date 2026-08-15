@@ -6,7 +6,11 @@ import {
   ClockCircleOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined,
   SendOutlined, ReloadOutlined, FormOutlined,
 } from '@ant-design/icons'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
 import { useSearchParams } from 'react-router-dom'
+import dayjs from 'dayjs'
 import { api } from '../api'
 
 const { Title, Paragraph, Text } = Typography
@@ -30,6 +34,7 @@ export default function MockExamPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [remaining, setRemaining] = useState(0)
   const [report, setReport] = useState<any>(null)
+  const [history, setHistory] = useState<any[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const submittedRef = useRef(false)
@@ -56,6 +61,7 @@ export default function MockExamPage() {
       const r = await api.gradeMockExam(answers, subject)
       setReport(r)
       setPhase('report')
+      api.getMockHistory().then(h => setHistory(h?.items || [])).catch(() => {})
       if (auto) message.warning('时间到，已自动交卷')
     } catch (e: any) {
       message.error(e?.response?.data?.detail || '交卷失败，请重试')
@@ -138,6 +144,13 @@ export default function MockExamPage() {
               <Button key="home" onClick={() => setPhase('intro')}>返回说明页</Button>,
             ]}
           />
+          {report.added_to_mistake_book > 0 && (
+            <Alert
+              type="info" showIcon style={{ marginBottom: 16 }}
+              message={`已将 ${report.added_to_mistake_book} 道错题加入错题本`}
+              description="错题会自动沉淀进「刷题练习 → 错题本」，考前集中复习。"
+            />
+          )}
           <Divider>各题型得分</Divider>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {report.sections.map((s: any) => (
@@ -177,6 +190,34 @@ export default function MockExamPage() {
               ))}
             </div>
           ))}
+
+          {history.length > 0 && (
+            <>
+              <Divider>历史成绩</Divider>
+              <Card size="small" style={{ marginBottom: 12 }}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={[...history].reverse().map((h, i) => ({
+                    name: dayjs(h.created_at).format('MM/DD'),
+                    score: h.total,
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="name" fontSize={11} tick={{ fill: '#999' }} />
+                    <YAxis domain={[0, 100]} fontSize={11} tick={{ fill: '#999' }} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="score" name="总分" stroke="#7c5cfc" strokeWidth={2}
+                      dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+              <Space wrap>
+                {history.slice(0, 10).map((h: any) => (
+                  <Tag key={h.id} color={h.passed ? 'success' : 'default'}>
+                    {dayjs(h.created_at).format('MM/DD HH:mm')} · {h.total} 分
+                  </Tag>
+                ))}
+              </Space>
+            </>
+          )}
         </div>
       </div>
     )

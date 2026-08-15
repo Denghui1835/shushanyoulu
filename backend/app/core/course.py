@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.lesson import CURRICULUM, _chat
-from app.models import Lesson, TopicProgress, StudyLog, User
+from app.models import Lesson, TopicProgress, StudyLog, User, SocialPost
 
 logger = logging.getLogger("yuanqi.course")
 
@@ -218,6 +218,13 @@ async def complete_lesson(db: AsyncSession, user: User, subject: str, topic: str
         prog.status = "mastered"
     else:
         db.add(TopicProgress(user_id=user.id, subject=subject, topic=topic, status="mastered", times=1))
+    db.add(SocialPost(
+        user_id=user.id,
+        username=user.username or user.name or "学习者",
+        kind="lesson",
+        content=f"学完「{subject} · {topic}」，已掌握 ✅",
+        points=0,
+    ))
     await db.commit()
     outline = await get_outline(db, user, subject)
     return {"topic": topic, "done": True, "current_index": outline["current_index"],

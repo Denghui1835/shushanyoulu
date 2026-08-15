@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import LearningPlan, PlanTask, StudyLog, User, CheckIn
+from app.models import LearningPlan, PlanTask, StudyLog, User, CheckIn, SocialPost
 
 router = APIRouter(prefix="/api/study", tags=["study"])
 
@@ -43,6 +43,8 @@ async def complete_task(task_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="任务不存在")
     task.status = "done"
     db.add(StudyLog(user_id=LOCAL_USER_ID, kind="plan", detail=f"完成任务「{task.title}」", points=5))
+    db.add(SocialPost(user_id=LOCAL_USER_ID, username="学习者", kind="task",
+                      content=f"完成任务「{task.title}」，元气 +5 ⚡", points=5))
     await db.commit()
     return {"ok": True}
 
@@ -108,6 +110,15 @@ async def do_checkin(db: AsyncSession = Depends(get_db)):
     db.add(CheckIn(user_id=LOCAL_USER_ID, checkin_date=today, points=_CHECKIN_POINTS))
     db.add(StudyLog(user_id=LOCAL_USER_ID, kind="plan", detail="今日打卡",
                     points=_CHECKIN_POINTS))
+    streak = await _streak(db, LOCAL_USER_ID)
+    user = await db.get(User, LOCAL_USER_ID)
+    db.add(SocialPost(
+        user_id=LOCAL_USER_ID,
+        username=(user.username or user.name or "学习者") if user else "学习者",
+        kind="checkin",
+        content=f"完成了今日打卡，连续打卡 {streak} 天 🔥",
+        points=_CHECKIN_POINTS,
+    ))
     await db.commit()
     total = (await db.execute(select(func.count()).select_from(CheckIn)
                               .where(CheckIn.user_id == LOCAL_USER_ID))).scalar()

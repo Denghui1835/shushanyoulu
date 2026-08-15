@@ -125,6 +125,7 @@ from app.api.stats import router as stats_router
 from app.api.kanban import router as kanban_router
 from app.api.schedules import router as schedules_router
 from app.api.course import router as course_router
+from app.api.social import router as social_router
 
 app.include_router(companion_router)
 app.include_router(lesson_router)
@@ -145,6 +146,7 @@ app.include_router(stats_router)
 app.include_router(kanban_router)
 app.include_router(schedules_router)
 app.include_router(course_router)
+app.include_router(social_router)
 
 
 @app.get("/")

@@ -13,6 +13,7 @@ from app.models.cache import APICache, APIQuota, APICallLog
 from app.models.reading import Annotation, DocSummary, PodcastScript, BlankCache, Drawing
 from app.models.kanban import KanbanColumn, KanbanCard
 from app.models.schedule import Schedule, ScheduleSlot, PlanNotification
+from app.models.social import SocialPost, SocialLike
 
 __all__ = [
     "User", "AuthToken", "Project", "LearningPlan", "PlanTask", "CheckIn",
@@ -23,4 +24,5 @@ __all__ = [
     "Annotation", "DocSummary", "PodcastScript", "BlankCache", "Drawing",
     "KanbanColumn", "KanbanCard",
     "Schedule", "ScheduleSlot",
+    "SocialPost", "SocialLike",
 ]

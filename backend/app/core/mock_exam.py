@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.quiz import _STOP_CHARS, grade_choice
-from app.models import Question, Document, QuizRecord, MockRecord
+from app.models import Question, Document, QuizRecord, MockRecord, SocialPost, User
 
 logger = logging.getLogger("yuanqi.mock")
 
@@ -201,8 +201,17 @@ async def grade_mock_exam(db: AsyncSession, answers: dict[str, str], subject: st
         ),
     )
     db.add(record)
-    await db.commit()
     total = round(total, 1)
+    user = await db.get(User, "local_user")
+    db.add(SocialPost(
+        user_id="local_user",
+        username=(user.username or user.name or "学习者") if user else "学习者",
+        kind="mock",
+        content=f"完成一场全真模拟（{(subject or 'python').lower()}），得分 {total} 分"
+                f"{'，合格！🎉' if total >= PASS_LINE else '，还差一点，继续加油 💪'}",
+        points=0,
+    ))
+    await db.commit()
     return {
         "record_id": record.id,
         "added_to_mistake_book": wrong_count,

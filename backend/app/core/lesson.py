@@ -23,7 +23,7 @@ from app.config import settings
 from app.core.api_scheduler import api_client
 from app.core.api_scheduler.adapters.base import AdapterConfig
 from app.core.retrieval import retrieve
-from app.models import Lesson, StudyLog, TopicProgress, User
+from app.models import Lesson, StudyLog, TopicProgress, User, SocialPost
 
 logger = logging.getLogger("yuanqi.lesson")
 
@@ -510,5 +510,12 @@ async def end_lesson(db: AsyncSession, user: User, lesson_id: str) -> dict:
         raise ValueError("教学会话不存在")
     lesson.step = "done"
     lesson.status = "done"
+    db.add(SocialPost(
+        user_id=user.id,
+        username=user.username or user.name or "学习者",
+        kind="lesson",
+        content=f"结束了「{lesson.subject} · {lesson.topic}」的深度教学，共 {lesson.rounds} 轮",
+        points=0,
+    ))
     await db.commit()
     return {"lesson_id": lesson.id, "step": "done", "rounds": lesson.rounds}

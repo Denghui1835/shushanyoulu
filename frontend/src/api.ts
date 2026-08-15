@@ -36,9 +36,13 @@ export const api = {
   starProject: (id: string) => http.post(`/community/plaza/${id}/star`).then(r => r.data),
   unstarProject: (id: string) => http.post(`/community/plaza/${id}/unstar`).then(r => r.data),
   forkProject: (id: string) => http.post(`/community/plaza/${id}/fork`).then(r => r.data),
-  getSuggestions: (id: string) => http.get(`/community/plaza/${id}/suggestions`).then(r => r.data),
-  createSuggestion: (id: string, content: string) => http.post(`/community/plaza/${id}/suggestions`, { content }).then(r => r.data),
-  acceptSuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/accept`).then(r => r.data),
+getSuggestions: (id: string) => http.get(`/community/plaza/${id}/suggestions`).then(r => r.data),
+createSuggestion: (id: string, content: string) => http.post(`/community/plaza/${id}/suggestions`, { content }).then(r => r.data),
+// 一起学（学习动态 / 点赞鼓励 / 排行榜）
+getSocialFeed: (limit = 50) => http.get('/social/feed', { params: { limit } }).then(r => r.data),
+likeSocialPost: (postId: string) => http.post(`/social/posts/${postId}/like`).then(r => r.data),
+getSocialLeaderboard: (days = 7) => http.get('/social/leaderboard', { params: { days } }).then(r => r.data),
+acceptSuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/accept`).then(r => r.data),
   applySuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/applied`).then(r => r.data),
   rejectSuggestion: (pid: string, sid: string) => http.post(`/community/projects/${pid}/suggestions/${sid}/reject`).then(r => r.data),
 

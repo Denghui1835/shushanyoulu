@@ -1,6 +1,6 @@
 import { Layout, Menu } from 'antd'
 import {
-  MessageOutlined, CalendarOutlined, ReadOutlined, GlobalOutlined, UserOutlined, RiseOutlined, TableOutlined,
+  MessageOutlined, CalendarOutlined, ReadOutlined, GlobalOutlined, UserOutlined, RiseOutlined, TableOutlined, TeamOutlined,
 } from '@ant-design/icons'
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -24,6 +24,7 @@ import ProfilePage from './pages/ProfilePage'
 import TTSTestPage from './pages/TTSTestPage'
 import StatsDashboard from './pages/StatsDashboard'
 import SchedulePage from './pages/SchedulePage'
+import SocialPage from './pages/SocialPage'
 
 const { Sider, Content } = Layout
 
@@ -33,6 +34,7 @@ function resolveMenuKey(path: string): string {
   if (path.startsWith('/plan')) return '/plan'
   if (path === '/schedule') return '/schedule'
   if (path === '/stats') return '/stats'
+  if (path === '/social') return '/social'
   if (path === '/community') return '/community'
   if (path === '/profile' || path === '/tts') return '/profile'
   // 书架及书内工具（课程/深度教学/刷题/模拟/闪卡/播客/阅读/知识树）
@@ -68,6 +70,7 @@ export default function App() {
     {
       type: 'group', label: '🌐 社区',
       children: [
+        { key: '/social', icon: <TeamOutlined />, label: '一起学' },
         { key: '/community', icon: <GlobalOutlined />, label: '作品社区' },
       ],
     },
@@ -131,6 +134,7 @@ export default function App() {
           <Route path="/flashcards" element={<FlashcardPage />} />
           <Route path="/podcasts" element={<PodcastLibraryPage />} />
           <Route path="/community" element={<CommunityPage />} />
+          <Route path="/social" element={<SocialPage />} />
           <Route path="/course/:id" element={<CourseDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/stats" element={<StatsDashboard />} />

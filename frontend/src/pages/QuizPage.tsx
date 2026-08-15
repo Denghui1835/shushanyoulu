@@ -3,6 +3,7 @@ import { Select, Button, Radio, Input, Tag, message, Empty, Space, Alert, Segmen
 import { EditOutlined, RightOutlined, DeleteOutlined, UndoOutlined, StarOutlined, ReloadOutlined, SearchOutlined, ShakeOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 type Filter = 'all' | 'mistake' | 'discarded'
 
@@ -116,23 +117,26 @@ export default function QuizPage() {
   ]
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <div className="page-card">
-        <Space wrap>
-          <EditOutlined style={{ color: '#7c5cfc', fontSize: 18 }} />
-          <b>练习题</b>
-          <Select style={{ width: 260 }} placeholder="选择资料" value={docId || undefined}
-            onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))} />
-          {filter === 'all' && (
-            <Button type="primary" loading={generating} onClick={generate}>
-              {questions.length ? '再生成一批' : '生成题目'}
-            </Button>
-          )}
-        </Space>
-        <div style={{ marginTop: 10 }}>
-          <Segmented value={filter} onChange={v => setFilter(v as Filter)} options={FILTER_OPTS} />
-        </div>
-        <Space wrap style={{ marginTop: 10 }}>
+    <div className="yq-page">
+      <PageHeader
+        icon={<EditOutlined />}
+        title="练习题"
+        subtitle="选择资料刷题，填空 / 简答由 AI 阅卷点评，做错的题收进错题本"
+        extra={
+          <>
+            <Select style={{ width: 240 }} placeholder="选择资料" value={docId || undefined}
+              onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))} />
+            {filter === 'all' && (
+              <Button type="primary" loading={generating} onClick={generate}>
+                {questions.length ? '再生成一批' : '生成题目'}
+              </Button>
+            )}
+          </>
+        }
+      />
+      <div className="yq-section">
+        <Segmented value={filter} onChange={v => setFilter(v as Filter)} options={FILTER_OPTS} />
+        <Space wrap style={{ marginTop: 12 }}>
           <Input
             allowClear placeholder="按考点筛选（如：列表 / 指针）"
             prefix={<SearchOutlined />} value={keyword}
@@ -148,7 +152,7 @@ export default function QuizPage() {
       </div>
 
       {finished ? (
-        <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
+        <div className="yq-section yq-empty-state">
           <h2 style={{ marginTop: 0 }}>本次练习完成 🎉</h2>
           <p style={{ color: '#666', fontSize: 15 }}>
             共 <b>{display.length}</b> 题，答对 <b style={{ color: '#52c41a' }}>{correctCount}</b> 题
@@ -165,7 +169,8 @@ export default function QuizPage() {
           </Space>
         </div>
       ) : !q ? (
-        <div className="page-card">
+        <div className="yq-section yq-empty-state">
+          <div className="yq-empty-icon">📝</div>
           <Empty
             description={
               filter === 'all' ? '还没有题目，点击「生成题目」开始练习'
@@ -175,7 +180,7 @@ export default function QuizPage() {
           />
         </div>
       ) : (
-        <div className="page-card">
+        <div className="yq-section">
           <Space style={{ marginBottom: 12 }}>
             <Tag color="purple">{idx + 1} / {questions.length}</Tag>
             <Tag>{q.qtype === 'choice' ? '选择题' : q.qtype === 'fill' ? '填空题' : '简答题'}</Tag>

@@ -607,7 +607,7 @@ export default function ProjectDetailPage() {
   )
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <div className="yq-page">
       {/* 项目头 */}
       <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <span style={{ fontSize: 44 }}>{project?.icon || '📚'}</span>
@@ -650,7 +650,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* 学习工具：按书聚合（从零学 → 练 → 考，入门到模拟） */}
-      <div className="page-card" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div className="yq-section" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 600, marginRight: 4 }}>🧰 学习工具：</span>
         {COURSE_SUBJECTS.includes(project?.subject || '') && (
           <Button type="primary" ghost icon={<BookOutlined />} onClick={() => navigate(`/course?subject=${encodeURIComponent(project.subject)}`)}>
@@ -683,7 +683,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* 视图切换：章节 / 看板 */}
-      <div className="page-card" style={{ marginBottom: 12, marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="yq-section" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Segmented
           value={projView}
           onChange={v => setProjView(v as 'chapters' | 'kanban')}
@@ -696,7 +696,8 @@ export default function ProjectDetailPage() {
 
       {/* 目录（章节视图） */}
       {projView === 'chapters' && (chapters.length === 0 ? (
-        <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
+        <div className="yq-section yq-empty-state">
+          <div className="yq-empty-icon">📖</div>
           <Empty description="这本书还没有章节，可导入整本 PDF（自动按目录分章），或单章导入 PPT / 讲义" />
           <Space style={{ marginTop: 12 }}>
             <Button type="primary" icon={<BookOutlined />} onClick={() => setBookOpen(true)}>

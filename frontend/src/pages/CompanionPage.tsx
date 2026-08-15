@@ -8,6 +8,7 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api, streamSSE } from '../api'
+import PageHeader from '../components/PageHeader'
 
 type Msg = { id: string; role: string; content: string; streaming?: boolean }
 
@@ -144,29 +145,39 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
   const plan = status.plan
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
-      {/* 每日打卡 */}
-      <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-        <span style={{ fontSize: 30 }}>🔥</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600 }}>
-            连续打卡 <b style={{ color: '#fa8c16' }}>{dataReady ? (checkin?.streak ?? 0) : '…'}</b> 天
-          </div>
-          <div style={{ color: '#999', fontSize: 12 }}>
-            {!dataReady ? '加载中…'
-              : checkin?.checked_today ? '今天已打卡 ✓，明天继续，别断链子！'
-              : '今天还没打卡，学一点就来打个卡吧'}
-          </div>
-        </div>
-        <Button
-          type={checkin?.checked_today ? 'default' : 'primary'}
-          icon={<FireOutlined />}
-          disabled={checkin?.checked_today}
-          onClick={doCheckin}
-        >
-          {checkin?.checked_today ? '已打卡' : '今日打卡'}
-        </Button>
-      </div>
+    <div className="yq-page">
+      <PageHeader
+        icon={<span>🐛</span>}
+        title="伴学首页"
+        subtitle={
+          status.user?.goal
+            ? `当前目标：${status.user.goal}${status.plan ? ` · ${status.plan.progress?.done ?? 0}/${status.plan.progress?.total ?? 0} 天` : ''}`
+            : '告诉小书虫你的学习目标，一起制定专属计划'
+        }
+        extra={
+          <>
+            <span style={{ color: '#fa8c16', fontSize: 13, whiteSpace: 'nowrap' }}>
+              🔥 连续打卡 {dataReady ? (checkin?.streak ?? 0) : '…'} 天
+            </span>
+            <Button
+              type={checkin?.checked_today ? 'default' : 'primary'}
+              icon={<FireOutlined />}
+              disabled={checkin?.checked_today}
+              onClick={doCheckin}
+            >
+              {checkin?.checked_today ? '已打卡' : '今日打卡'}
+            </Button>
+            <Tooltip title={!status.user?.goal ? '请先在下方对话中告诉小书虫你的学习目标' : (plan ? '重新生成学习计划' : '根据目标生成个性化学习计划')}>
+              <Button
+                type="primary" ghost icon={<ThunderboltOutlined />}
+                disabled={!status.user?.goal} onClick={() => setPlanOpen(true)}
+              >
+                {plan ? '重新制定计划' : '生成学习计划'}
+              </Button>
+            </Tooltip>
+          </>
+        }
+      />
 
       {/* 状态卡片 */}
       <div className="yq-status-grid">
@@ -192,13 +203,13 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
 
       {/* 今日任务快捷操作 */}
       {todayTasks.length > 0 && (
-        <div className="page-card">
+        <div className="yq-section">
           <Space direction="vertical" style={{ width: '100%' }}>
-            <Space>
-              <CalendarOutlined style={{ color: '#7c5cfc' }} />
-              <b>今日任务</b>
-              {plan && <Tag color="purple">{plan.title}</Tag>}
-            </Space>
+            <div className="yq-section-title">
+              <CalendarOutlined />
+              <span>今日任务</span>
+              {plan && <Tag color="purple" style={{ marginLeft: 4 }}>{plan.title}</Tag>}
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {todayTasks.map((t: any) => (
                 <Tag
@@ -226,16 +237,6 @@ export default function CompanionPage({ onActivity }: { onActivity?: () => void 
             <div style={{ fontSize: 12, color: '#999' }}>
               {status.user?.goal ? `目标：${status.user.goal}` : '先聊聊你的学习目标吧'}
             </div>
-          </div>
-          <div style={{ marginLeft: 'auto' }}>
-            <Tooltip title={!status.user?.goal ? '请先在下方对话中告诉小书虫你的学习目标' : (plan ? '重新生成学习计划' : '根据目标生成个性化学习计划')}>
-              <Button
-                type="primary" size="small" icon={<ThunderboltOutlined />}
-                disabled={!status.user?.goal} onClick={() => setPlanOpen(true)}
-              >
-                {plan ? '重新制定计划' : '生成学习计划'}
-              </Button>
-            </Tooltip>
           </div>
         </div>
 

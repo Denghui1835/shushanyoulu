@@ -27,6 +27,18 @@ import SchedulePage from './pages/SchedulePage'
 
 const { Sider, Content } = Layout
 
+/** 把任意路由归到侧边栏菜单项，避免子页面高亮错乱 */
+function resolveMenuKey(path: string): string {
+  if (path === '/') return '/'
+  if (path.startsWith('/plan')) return '/plan'
+  if (path === '/schedule') return '/schedule'
+  if (path === '/stats') return '/stats'
+  if (path === '/community') return '/community'
+  if (path === '/profile' || path === '/tts') return '/profile'
+  // 书架及书内工具（课程/深度教学/刷题/模拟/闪卡/播客/阅读/知识树）
+  return '/bookshelf'
+}
+
 export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -68,7 +80,7 @@ export default function App() {
 
   const current = menuItems
     .flatMap(g => (g.type === 'group' && g.children ? g.children : [g]))
-    .find(m => m.key === location.pathname)?.key ?? '/bookshelf'
+    .find(m => m.key === resolveMenuKey(location.pathname))?.key ?? '/bookshelf'
 
   return (
     <Layout className="yq-layout">
@@ -87,11 +99,10 @@ export default function App() {
           items={menuItems}
           onClick={e => navigate(e.key)}
         />
-        <div style={{ color: 'rgba(255,255,255,0.85)', padding: '20px', fontSize: 13 }}>
-          <div>⚡ 元气值：<b style={{ fontSize: 16 }}>{points}</b></div>
-          <div style={{ opacity: 0.7, marginTop: 6, fontSize: 12 }}>
-            每次学习都能攒元气哦
-          </div>
+        <div className="yq-sidebar-footer">
+          <div style={{ fontSize: 12, opacity: 0.85 }}>⚡ 元气值</div>
+          <div className="num">{points}</div>
+          <div className="hint">每次学习都能攒元气哦</div>
         </div>
       </Sider>
       <Content className="yq-content">

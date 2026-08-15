@@ -81,8 +81,8 @@ export default function ProfilePage() {
 
   if (!getAuthToken()) {
     return (
-      <div style={{ maxWidth: 420, margin: '80px auto' }}>
-        <div className="page-card" style={{ textAlign: 'center', padding: 40 }}>
+      <div className="yq-page">
+        <div className="yq-section yq-empty-state">
           <UserOutlined style={{ fontSize: 48, color: '#7c5cfc' }} />
           <h3 style={{ marginTop: 12 }}>登录后才能查看个人中心</h3>
           <p style={{ color: '#999' }}>去「作品社区」注册/登录，第一个注册的账号会成为主人</p>
@@ -100,9 +100,9 @@ export default function ProfilePage() {
   const s = data.stats || {}
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
+    <div className="yq-page">
       {/* 头像 + 基本信息 */}
-      <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+      <div className="yq-section" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         <Avatar size={72} style={{ background: '#7c5cfc', fontSize: 32 }}>
           {(data.user.name || '书')[0]}
         </Avatar>
@@ -140,8 +140,8 @@ export default function ProfilePage() {
       </div>
 
       {/* 资料编辑 */}
-      <div className="page-card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>学习资料</h3>
+      <div className="yq-section">
+        <div className="yq-section-title">学习资料</div>
         <Form form={form} layout="vertical">
           <Space size={16} wrap align="start">
             <Form.Item name="name" label="昵称"><Input style={{ width: 200 }} /></Form.Item>
@@ -154,8 +154,8 @@ export default function ProfilePage() {
       </div>
 
       {/* API 设置（用户自理 Key → 开源免费） */}
-      <div className="page-card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}><ApiOutlined style={{ color: '#7c5cfc' }} /> API 设置（使用自己的 Key）</h3>
+      <div className="yq-section">
+        <div className="yq-section-title"><ApiOutlined /> API 设置（使用自己的 Key）</div>
         <Alert type="info" showIcon style={{ marginBottom: 12 }}
           message="填写你自己的 API Key 后，所有 AI 功能将使用你的 Key 调用，费用由你自理的 Key 承担；不填则使用系统默认 Key。" />
         {apiKeyInfo?.configured && (
@@ -184,8 +184,8 @@ export default function ProfilePage() {
       </div>
 
       {/* 微信绑定 */}
-      <div className="page-card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}><WechatOutlined style={{ color: '#07c160' }} /> 微信绑定</h3>
+      <div className="yq-section">
+        <div className="yq-section-title"><WechatOutlined /> 微信绑定</div>
         {data.user.wechat_bound ? (
           <Space>
             <Tag color="green">已绑定微信</Tag>

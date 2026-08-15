@@ -9,6 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 interface DashboardData {
   overview: {
@@ -71,14 +72,12 @@ export default function StatsDashboard() {
   }))
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      <h2 style={{ marginTop: 0 }}>
-        <RiseOutlined style={{ color: '#7c5cfc', marginRight: 8 }} />
-        学习统计看板
-        <span style={{ fontSize: 13, color: '#999', fontWeight: 400, marginLeft: 12 }}>
-          近 4 周数据
-        </span>
-      </h2>
+    <div className="yq-page">
+      <PageHeader
+        icon={<RiseOutlined />}
+        title="学习统计"
+        subtitle="近 4 周数据：答题、打卡、复习与元气值成长"
+      />
 
       {/* ── 概览卡片 ── */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>

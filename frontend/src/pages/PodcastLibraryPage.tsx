@@ -3,6 +3,7 @@ import { Button, Card, Tag, Space, Empty, Spin, Popconfirm, message, Progress, C
 import { SoundOutlined, DeleteOutlined, ReloadOutlined, PlayCircleOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 interface PodcastItem {
   id: string
@@ -33,7 +34,7 @@ export default function PodcastLibraryPage() {
       if (projectId) {
         const docs = await api.listDocuments(projectId)
         const ids = new Set(docs.map((d: any) => d.id))
-        list = list.filter(p => ids.has(p.document_id))
+        list = list.filter((p: any) => ids.has(p.document_id))
       }
       setPodcasts(list)
     } finally { setLoading(false) }
@@ -79,20 +80,17 @@ export default function PodcastLibraryPage() {
   }
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto' }}>
-      <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <SoundOutlined style={{ fontSize: 26, color: '#7c5cfc' }} />
-        <div>
-          <h2 style={{ margin: 0 }}>我的播客</h2>
-          <div style={{ color: '#999', fontSize: 13 }}>按章节生成的 AI 播客都在这里，可随时回听或整理</div>
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
-        </div>
-      </div>
+    <div className="yq-page">
+      <PageHeader
+        icon={<SoundOutlined />}
+        title="我的播客"
+        subtitle="按章节生成的 AI 播客都在这里，可随时回听或整理"
+        extra={<Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>}
+      />
 
       {podcasts.length === 0 ? (
-        <div className="page-card" style={{ textAlign: 'center', padding: 60 }}>
+        <div className="yq-section yq-empty-state">
+          <div className="yq-empty-icon">🎧</div>
           <Empty description="还没有播客。去「阅读」页选一章，点「AI 播客」生成吧" />
         </div>
       ) : (

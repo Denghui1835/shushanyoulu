@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { api, getAuthToken } from '../api'
+import PageHeader from '../components/PageHeader'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -64,31 +65,30 @@ export default function CommunityPage() {
   return (
     <div className="yq-page">
       {/* 顶部：标题 + 搜索 + 排序 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            <GlobalIcon /> 内容广场
-          </Title>
-          <Text type="secondary">人人能学，人人能教——好课会被传抄和续写</Text>
-        </div>
-        <Space wrap>
-          <Input.Search
-            placeholder="搜索课程 / 知识点 / 创作者"
-            allowClear
-            style={{ width: 240 }}
-            prefix={<SearchOutlined />}
-            onSearch={() => load()}
-          />
-          <Segmented
-            value={sort}
-            onChange={v => setSort(v as 'new' | 'hot')}
-            options={[
-              { label: <span><FireOutlined /> 热门</span>, value: 'hot' },
-              { label: <span>🆕 最新</span>, value: 'new' },
-            ]}
-          />
-        </Space>
-      </div>
+      <PageHeader
+        icon={<span>🌐</span>}
+        title="内容广场"
+        subtitle="人人能学，人人能教——好课会被传抄和续写"
+        extra={
+          <Space wrap>
+            <Input.Search
+              placeholder="搜索课程 / 知识点 / 创作者"
+              allowClear
+              style={{ width: 240 }}
+              prefix={<SearchOutlined />}
+              onSearch={() => load()}
+            />
+            <Segmented
+              value={sort}
+              onChange={v => setSort(v as 'new' | 'hot')}
+              options={[
+                { label: <span><FireOutlined /> 热门</span>, value: 'hot' },
+                { label: <span>🆕 最新</span>, value: 'new' },
+              ]}
+            />
+          </Space>
+        }
+      />
 
       {/* 分类：学科门类 → 一级学科 */}
       <div style={{ margin: '16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -122,14 +122,16 @@ export default function CommunityPage() {
 
       {/* 课程卡片流（番茄书架式） */}
       {loading ? <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div> : items.length === 0 ? (
-        <Empty description="还没有公开课程，快去发布第一门吧！"
-          style={{ padding: 40 }}>
-          {loggedIn ? (
-            <Button type="primary" onClick={() => navigate('/bookshelf')}>去我的书架发布</Button>
-          ) : (
-            <Text type="secondary">登录后就能收藏 / Fork / 提建议 / 发布课程</Text>
-          )}
-        </Empty>
+        <div className="yq-section yq-empty-state">
+          <div className="yq-empty-icon">🌐</div>
+          <Empty description="还没有公开课程，快去发布第一门吧！">
+            {loggedIn ? (
+              <Button type="primary" onClick={() => navigate('/bookshelf')}>去我的书架发布</Button>
+            ) : (
+              <Text type="secondary">登录后就能收藏 / Fork / 提建议 / 发布课程</Text>
+            )}
+          </Empty>
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
           {items.map((it: PlazaItem) => (

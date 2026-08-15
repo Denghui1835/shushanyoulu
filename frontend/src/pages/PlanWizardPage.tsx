@@ -5,6 +5,7 @@ import {
 import { RocketOutlined, LeftOutlined, RightOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -47,13 +48,12 @@ export default function PlanWizardPage() {
   }
 
   return (
-    <div className="yq-page" style={{ maxWidth: 760, margin: '0 auto' }}>
-      <Title level={3} style={{ marginTop: 0 }}>
-        <ThunderboltOutlined style={{ color: '#fa8c16' }} /> AI 一键生成计划表
-      </Title>
-      <Paragraph type="secondary">
-        回答几个小问题，AI 帮你排好每天学什么、什么时候学。生成后还能随时手动改。
-      </Paragraph>
+    <div className="yq-page">
+      <PageHeader
+        icon={<ThunderboltOutlined />}
+        title="AI 一键生成计划表"
+        subtitle="回答几个小问题，AI 帮你排好每天学什么、什么时候学。生成后还能随时手动改。"
+      />
 
       <Steps
         current={step}

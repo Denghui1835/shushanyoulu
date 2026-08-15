@@ -3,6 +3,7 @@ import { Button, Card, Tag, message, Empty, Space, Select, Segmented, Popconfirm
 import { ThunderboltOutlined, ReloadOutlined, DeleteOutlined, UndoOutlined, SoundOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 import { useTTSPlay } from '../hooks/useTTSPlay'
 
 type Filter = 'due' | 'all' | 'discarded'
@@ -93,34 +94,37 @@ export default function FlashcardPage() {
   ]
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto' }}>
-      <div className="page-card">
-        <Space wrap>
-          <ThunderboltOutlined style={{ color: '#7c5cfc', fontSize: 18 }} />
-          <b>闪卡复习</b>
-          <Select style={{ width: 220 }} placeholder="选择资料" value={docId || undefined}
-            onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))} />
-          {filter === 'all' && (
-            <Button onClick={generate} loading={generating}>生成闪卡</Button>
-          )}
-          {filter === 'all' && (
-            <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
-          )}
-        </Space>
-        <div style={{ marginTop: 10 }}>
-          <Segmented
-            value={filter} onChange={v => setFilter(v as Filter)}
-            options={[
-              { value: 'due', label: '待复习' },
-              { value: 'all', label: `全部 (${filter === 'all' ? cards.length : ''})` },
-              { value: 'discarded', label: '已弃用' },
-            ]}
-          />
-        </div>
+    <div className="yq-page">
+      <PageHeader
+        icon={<ThunderboltOutlined />}
+        title="闪卡复习"
+        subtitle="FSRS 间隔复习：到期卡片自动提醒，记得牢"
+        extra={
+          <>
+            <Select style={{ width: 220 }} placeholder="选择资料" value={docId || undefined}
+              onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))} />
+            {filter === 'all' && (
+              <Button onClick={generate} loading={generating}>生成闪卡</Button>
+            )}
+            {filter === 'all' && (
+              <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
+            )}
+          </>
+        }
+      />
+      <div className="yq-section">
+        <Segmented
+          value={filter} onChange={v => setFilter(v as Filter)}
+          options={[
+            { value: 'due', label: '待复习' },
+            { value: 'all', label: `全部 (${filter === 'all' ? cards.length : ''})` },
+            { value: 'discarded', label: '已弃用' },
+          ]}
+        />
       </div>
 
       {finished ? (
-        <div className="page-card" style={{ textAlign: 'center', padding: 50 }}>
+        <div className="yq-section yq-empty-state">
           <h2 style={{ marginTop: 0 }}>
             {filter === 'due' ? '今天的复习完成啦 🎉' : '本组复习完成 🎉'}
           </h2>
@@ -135,7 +139,8 @@ export default function FlashcardPage() {
           </Space>
         </div>
       ) : !card ? (
-        <div className="page-card">
+        <div className="yq-section yq-empty-state">
+          <div className="yq-empty-icon">🃏</div>
           <Empty
             description={
               filter === 'due' ? '太棒了！今天该复习的卡片都复习完了 🎉'
@@ -155,7 +160,7 @@ export default function FlashcardPage() {
           )}
         </div>
       ) : (
-        <div className="page-card">
+        <div className="yq-section">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Tag color="purple">{idx + 1} / {cards.length}</Tag>
             <Tag>{card.reps > 0 ? `复习了 ${card.reps} 次` : '新卡片'}</Tag>

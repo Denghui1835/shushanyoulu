@@ -1,3 +1,29 @@
+/* ===== 设计 Token（全站统一） ===== */
+:root {
+  --yq-primary: #7c5cfc;
+  --yq-primary-strong: #6a48f0;
+  --yq-primary-soft: #f0edff;
+  --yq-primary-faint: #faf9ff;
+  --yq-bg: #f5f7fa;
+  --yq-card: #ffffff;
+  --yq-border: #eef0f4;
+  --yq-text: #1f2430;
+  --yq-text-2: #5f6672;
+  --yq-text-3: #9aa1ad;
+  --yq-success: #22c55e;
+  --yq-warning: #f59e0b;
+  --yq-danger: #ef4444;
+  --yq-radius: 12px;
+  --yq-radius-lg: 16px;
+  --yq-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --yq-shadow-lg: 0 4px 16px rgba(16, 24, 40, 0.08);
+  --yq-space-xs: 4px;
+  --yq-space-sm: 8px;
+  --yq-space-md: 12px;
+  --yq-space-lg: 16px;
+  --yq-space-xl: 24px;
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
@@ -32,10 +58,16 @@ body {
   background: transparent !important;
   border-inline-end: none !important;
 }
+.yq-menu .ant-menu-item-group-title {
+  color: rgba(255,255,255,0.55) !important;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 16px 20px 4px !important;
+}
 .yq-menu .ant-menu-item {
   color: rgba(255,255,255,0.85) !important;
   border-radius: 10px !important;
-  margin: 4px 10px !important;
+  margin: 2px 10px !important;
 }
 .yq-menu .ant-menu-item-selected {
   background: rgba(255,255,255,0.22) !important;
@@ -53,11 +85,120 @@ body {
   height: calc(100vh - 0px);
 }
 
+/* ===== 通用页面容器与页头 ===== */
+.yq-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 4px 0 40px;
+}
+.yq-page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  background: var(--yq-card);
+  border-radius: var(--yq-radius-lg);
+  box-shadow: var(--yq-shadow);
+  margin-bottom: 16px;
+}
+.yq-page-header-icon {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--yq-primary-soft);
+  color: var(--yq-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+.yq-page-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--yq-text);
+  line-height: 1.3;
+}
+.yq-page-header-sub {
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--yq-text-3);
+}
+.yq-page-header-extra {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== 通用内容卡片 ===== */
+.yq-section {
+  background: var(--yq-card);
+  border-radius: var(--yq-radius-lg);
+  box-shadow: var(--yq-shadow);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.yq-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--yq-text);
+  margin: 0 0 14px;
+}
+.yq-card-hover {
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.yq-card-hover:hover {
+  box-shadow: var(--yq-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* ===== 通用空状态 ===== */
+.yq-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+.yq-empty-icon {
+  font-size: 42px;
+  line-height: 1;
+  margin-bottom: 10px;
+  opacity: 0.55;
+}
+.yq-empty-state p {
+  color: var(--yq-text-3);
+  margin: 0 0 14px;
+}
+
+/* ===== 侧边栏底部元气值卡片 ===== */
+.yq-sidebar-footer {
+  margin: 16px 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.13);
+  color: #fff;
+}
+.yq-sidebar-footer .num {
+  font-size: 17px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.yq-sidebar-footer .hint {
+  opacity: 0.7;
+  font-size: 11px;
+  margin-top: 5px;
+}
+
 /* companion chat */
 .yq-chat {
   display: flex; flex-direction: column;
-  height: calc(100vh - 48px);
-  max-width: 900px; margin: 0 auto;
+  height: 640px;
+  max-width: none; margin: 0;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(124,92,252,0.08);
@@ -114,8 +255,8 @@ body {
 /* status cards */
 .yq-status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
   margin-bottom: 16px;
 }
 .yq-stat-card {
@@ -144,9 +285,9 @@ body {
 
 .page-card {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  box-shadow: var(--yq-shadow);
   margin-bottom: 16px;
 }
 

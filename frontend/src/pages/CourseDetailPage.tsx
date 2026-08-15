@@ -115,10 +115,18 @@ export default function CourseDetailPage() {
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
-  if (!course) return <Empty description="课程不存在" style={{ padding: 60 }} />
+  if (!course) return (
+    <div className="yq-page">
+      <div className="yq-section yq-empty-state">
+        <div className="yq-empty-icon">📕</div>
+        <p>课程不存在或已被删除</p>
+        <Button onClick={() => navigate('/community')}>返回社区广场</Button>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="yq-page" style={{ maxWidth: 860, margin: '0 auto' }}>
+    <div className="yq-page">
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/community')} style={{ marginBottom: 12 }}>返回广场</Button>
 
       {/* 封面 + 信息 */}
@@ -138,8 +146,7 @@ export default function CourseDetailPage() {
 
           {/* 操作区（GitHub 式） */}
           <Space wrap>
-            <Button icon={<ReadOutlined />} type="primary" onClick={doLearn} loading={busy}
-              style={{ background: '#fa541c', borderColor: '#fa541c' }}>
+            <Button icon={<ReadOutlined />} type="primary" onClick={doLearn} loading={busy}>
               开始学习
             </Button>
             <Button icon={<StarOutlined />} onClick={toggleStar} loading={busy}

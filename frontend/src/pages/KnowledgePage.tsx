@@ -3,6 +3,7 @@ import { Select, Tree, Button, Empty, message, Spin, Space, Tag } from 'antd'
 import { AppstoreOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 export default function KnowledgePage() {
   const [docs, setDocs] = useState<any[]>([])
@@ -48,23 +49,25 @@ export default function KnowledgePage() {
   }))
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto' }}>
-      <div className="page-card">
-        <Space wrap>
-          <AppstoreOutlined style={{ color: '#7c5cfc', fontSize: 18 }} />
-          <b>知识树</b>
-          <Select
-            style={{ width: 280 }} placeholder="选择资料" value={docId || undefined}
-            onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))}
-          />
-          <Button type="primary" loading={generating} onClick={generate}>
-            {tree.length ? '重新生成知识树' : '生成知识树'}
-          </Button>
-        </Space>
-        <Tag style={{ marginTop: 8 }} color="purple">AI 自动提炼这份资料的知识结构</Tag>
-      </div>
+    <div className="yq-page">
+      <PageHeader
+        icon={<AppstoreOutlined />}
+        title="知识树"
+        subtitle="AI 自动提炼这份资料的知识结构"
+        extra={
+          <>
+            <Select
+              style={{ width: 280 }} placeholder="选择资料" value={docId || undefined}
+              onChange={setDocId} options={docs.map(d => ({ value: d.id, label: d.title }))}
+            />
+            <Button type="primary" loading={generating} onClick={generate}>
+              {tree.length ? '重新生成知识树' : '生成知识树'}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="page-card">
+      <div className="yq-section">
         {loading ? <Spin /> : tree.length === 0 ? (
           <Empty description="还没有知识树，点击「生成知识树」让 AI 帮你梳理" />
         ) : (

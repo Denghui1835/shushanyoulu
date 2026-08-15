@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 const { Title, Paragraph, Text } = Typography
 const { TextArea } = Input
@@ -75,25 +76,27 @@ export default function CoursePage() {
     finally { setLoading(false) }
   }
 
-  if (!subject) return <Empty description="缺少课程科目" style={{ padding: 80 }} />
+  if (!subject) return (
+    <div className="yq-page">
+      <div className="yq-section yq-empty-state">
+        <div className="yq-empty-icon">🎓</div>
+        <p>缺少课程科目，请从书架中的课程书进入</p>
+        <Button type="primary" onClick={() => window.history.back()}>返回</Button>
+      </div>
+    </div>
+  )
   if (!outline) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
   return (
-    <div style={{ maxWidth: 980, margin: '0 auto' }}>
-      <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <BookOutlined style={{ fontSize: 26, color: '#b8860b' }} />
-        <div>
-          <h2 style={{ margin: 0 }}>老教授课堂 · {subject}</h2>
-          <div style={{ color: '#999', fontSize: 13 }}>
-            12 年 NCRE 阅卷经验 · 一小节知识点 → 真题示例 → 练习 → 提问，一对一教到懂
-          </div>
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <Text type="secondary">已掌握 {outline.topics.filter((t: any) => t.done).length}/{outline.total} 节</Text>
-        </div>
-      </div>
+    <div className="yq-page">
+      <PageHeader
+        icon={<BookOutlined />}
+        title={`老教授课堂 · ${subject}`}
+        subtitle="12 年 NCRE 阅卷经验 · 一小节知识点 → 真题示例 → 练习 → 提问，一对一教到懂"
+        extra={<Text type="secondary">已掌握 {outline.topics.filter((t: any) => t.done).length}/{outline.total} 节</Text>}
+      />
 
-      <div style={{ display: 'flex', gap: 16, marginTop: 16, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         {/* 大纲侧栏 */}
         <div style={{ width: 240, flexShrink: 0 }}>
           <Card size="small" title="课程大纲">

@@ -98,8 +98,8 @@ export default function MockExamPage() {
   // ---------------------------------------------------------------- 介绍页
   if (phase === 'intro' || !exam) {
     return (
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <Card className="page-card">
+      <div className="yq-page">
+        <div className="yq-section">
           <Title level={3} style={{ marginTop: 0 }}>
             <ThunderboltOutlined style={{ color: '#fa8c16' }} /> 全真模拟考试
           </Title>
@@ -119,7 +119,7 @@ export default function MockExamPage() {
             onClick={start} disabled={!exam}>
             开始考试（{fmtTime(exam?.duration_seconds ?? 7200)}）
           </Button>
-        </Card>
+        </div>
       </div>
     )
   }
@@ -127,8 +127,8 @@ export default function MockExamPage() {
   // ---------------------------------------------------------------- 成绩单
   if (phase === 'report' && report) {
     return (
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <Card className="page-card">
+      <div className="yq-page">
+        <div className="yq-section">
           <Result
             status={report.passed ? 'success' : 'error'}
             title={report.passed ? `🎉 恭喜，${report.total} 分，合格！` : `${report.total} 分，未达合格线`}
@@ -177,7 +177,7 @@ export default function MockExamPage() {
               ))}
             </div>
           ))}
-        </Card>
+        </div>
       </div>
     )
   }
@@ -185,7 +185,7 @@ export default function MockExamPage() {
   // ---------------------------------------------------------------- 考试中
   const red = remaining <= 300
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto' }}>
+    <div className="yq-page">
       {/* 顶部固定：倒计时 + 交卷 */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', padding: '10px 0', borderBottom: '1px solid #f0f0f0', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>

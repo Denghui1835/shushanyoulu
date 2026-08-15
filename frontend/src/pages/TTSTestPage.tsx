@@ -40,8 +40,8 @@ export default function TTSTestPage() {
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="page-card">
+    <div className="yq-page">
+      <div className="yq-section">
         <Space align="center" style={{ marginBottom: 12 }}>
           <SoundOutlined style={{ fontSize: 24, color: '#7c5cfc' }} />
           <b style={{ fontSize: 17 }}>语音试听</b>

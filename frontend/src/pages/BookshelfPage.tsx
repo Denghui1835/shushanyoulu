@@ -3,6 +3,7 @@ import { Card, Button, Modal, Form, Input, Select, Empty, Popconfirm, message, S
 import { PlusOutlined, ReadOutlined, DeleteOutlined, FolderOpenOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 interface Project {
   id: string
@@ -63,32 +64,33 @@ export default function BookshelfPage() {
   if (loading) return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
-      <div className="page-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <ReadOutlined style={{ fontSize: 26, color: '#7c5cfc' }} />
-        <div>
-          <h2 style={{ margin: 0 }}>我的书架</h2>
-          <div style={{ color: '#999', fontSize: 13 }}>每个项目就是一本「书」，打开书才能看到章节与功能</div>
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
+    <div className="yq-page">
+      <PageHeader
+        icon={<ReadOutlined />}
+        title="我的书架"
+        subtitle="每个项目就是一本「书」，打开书才能看到章节与功能"
+        extra={
+          <>
           <Upload accept=".yqp" showUploadList={false} customRequest={importing}>
             <Button icon={<UploadOutlined />}>导入项目</Button>
           </Upload>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ marginLeft: 8 }}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
             创建项目
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {projects.length === 0 ? (
-        <div className="page-card" style={{ textAlign: 'center', padding: 60 }}>
+        <div className="yq-section yq-empty-state">
+          <div className="yq-empty-icon">📚</div>
           <Empty description="书架还是空的，创建一个学习项目吧，比如《推理王国》" />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ marginTop: 12 }}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
             创建第一个项目
           </Button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 16 }}>
           {projects.map(p => (
             <Card
               key={p.id} hoverable

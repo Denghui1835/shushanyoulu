@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 const { TextArea } = Input
 const { Title, Paragraph, Text } = Typography
@@ -102,12 +103,11 @@ export default function LessonPage() {
 
   return (
     <div className="yq-page">
-      <Title level={3} style={{ marginTop: 0 }}>
-        <BulbOutlined style={{ color: '#fa8c16' }} /> 深度教学
-      </Title>
-      <Paragraph type="secondary">
-        一对一私教：AI 先讲、再考、判断你的回答、点评纠正。选一门课，从目录里挑一个知识点开课吧～
-      </Paragraph>
+      <PageHeader
+        icon={<BulbOutlined />}
+        title="深度教学"
+        subtitle="一对一私教：AI 先讲、再考、判断你的回答、点评纠正。选一门课，从目录里挑一个知识点开课吧～"
+      />
 
       {/* 选课区 */}
       <Card size="small" style={{ marginBottom: 16 }}>

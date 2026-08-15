@@ -7,6 +7,7 @@ import { LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 dayjs.extend(isoWeek)
 const { Text } = Typography
 
@@ -70,10 +71,14 @@ export default function SchedulePage() {
   const next = () => setWeekStart(dayjs(weekStart).add(7, 'day').format('YYYY-MM-DD'))
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, background: '#fff', padding: '10px 16px', borderRadius: 10, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+    <div className="yq-page">
+      <PageHeader
+        icon={<CalendarOutlined />}
+        title="计划表"
+        subtitle="按天 / 时段排学习任务，可标记完成、定时提醒"
+      />
+      <div className="yq-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <CalendarOutlined style={{ color: '#7c5cfc', fontSize: 18 }} />
           <Button size="small" icon={<LeftOutlined />} onClick={prev} />
           <Text strong style={{ minWidth: 160, textAlign: 'center', fontSize: 13 }}>
             {dayjs(weekStart).format('MM/DD')} - {dayjs(weekStart).add(6, 'day').format('MM/DD')}
@@ -108,7 +113,8 @@ export default function SchedulePage() {
 function WeekView({ sched, weekStart, onEnsure, timeStart, timeEnd }: any) {
   if (!sched) {
     return (
-      <div style={{ background: '#f8f9fb', borderRadius: 10, textAlign: 'center', padding: 60 }}>
+      <div className="yq-section yq-empty-state">
+        <div className="yq-empty-icon">🗓️</div>
         <p style={{ color: '#8c8fa1' }}>还没有计划表</p>
         <Button type="primary" onClick={onEnsure}>创建计划表</Button>
       </div>

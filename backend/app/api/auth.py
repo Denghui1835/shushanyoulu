@@ -30,7 +30,8 @@ class LoginIn(BaseModel):
 
 
 def _serialize_user(u: User) -> dict:
-    return {"id": u.id, "username": u.username or "", "name": u.name}
+    return {"id": u.id, "username": u.username or "", "name": u.name,
+            "is_admin": bool(u.is_admin), "is_active": bool(u.is_active)}
 
 
 @router.post("/register")
@@ -58,6 +59,7 @@ async def register(data: RegisterIn, db: AsyncSession = Depends(get_db)):
             await db.flush()
         u.username = username
         u.password_hash = hash_password(password)
+        u.is_admin = True   # 首个注册账号 = 主人 = 管理员（全新安装的引导点）
         logger.info("首个账号注册：认领 local_user 数据，用户名=%s", username)
     else:
         u = User(username=username, password_hash=hash_password(password), name=username)
@@ -74,6 +76,8 @@ async def login(data: LoginIn, db: AsyncSession = Depends(get_db)):
     u = (await db.execute(select(User).where(User.username == (data.username or "").strip()))).scalars().first()
     if not u or not verify_password(data.password or "", u.password_hash):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
+    if not u.is_active:
+        raise HTTPException(status_code=403, detail="该账号已被停用，请联系管理员")
     token = await issue_token(db, u)
     return {"token": token, "user": _serialize_user(u)}
 
@@ -107,6 +111,8 @@ async def wechat_login(data: WechatLoginIn, db: AsyncSession = Depends(get_db)):
         db.add(u)
         await db.commit()
         await db.refresh(u)
+    elif not u.is_active:
+        raise HTTPException(status_code=403, detail="该账号已被停用，请联系管理员")
     token = await issue_token(db, u)
     return {"token": token, "user": _serialize_user(u), "is_new": is_new}
 

@@ -53,6 +53,26 @@ acceptSuggestion: (pid: string, sid: string) => http.post(`/community/projects/$
   saveApiKey: (data: any) => http.put('/profile/apikey', data).then(r => r.data),
   deleteApiKey: () => http.delete('/profile/apikey').then(r => r.data),
   testApiKey: (data: any) => http.post('/profile/apikey/test', data).then(r => r.data),
+  // 服务商配置（按能力分档：text / vision / tts）
+  getProviderPresets: () => http.get('/profile/provider-presets').then(r => r.data),
+  getProviderConfigs: () => http.get('/profile/providers').then(r => r.data),
+  saveProviderConfig: (capability: string, data: any) =>
+    http.put(`/profile/providers/${capability}`, data).then(r => r.data),
+  deleteProviderConfig: (capability: string) =>
+    http.delete(`/profile/providers/${capability}`).then(r => r.data),
+  testProviderConfig: (data: any) => http.post('/profile/providers/test', data).then(r => r.data),
+  listProviderModels: (data: any) => http.post('/profile/providers/models', data).then(r => r.data),
+  // 系统 / 元信息（设置页的「API 接口」用）
+  getApiRoutes: () => http.get('/system/routes').then(r => r.data),
+  // 管理后台（仅管理员；非管理员后端一律 403）
+  adminListUsers: () => http.get('/admin/users').then(r => r.data),
+  adminResetPassword: (uid: string, newPassword: string) =>
+    http.post(`/admin/users/${uid}/reset-password`, { new_password: newPassword }).then(r => r.data),
+  adminSetActive: (uid: string, isActive: boolean) =>
+    http.post(`/admin/users/${uid}/active`, { is_active: isActive }).then(r => r.data),
+  adminDeletePreview: (uid: string) => http.get(`/admin/users/${uid}/delete-preview`).then(r => r.data),
+  adminDeleteUser: (uid: string, confirmUsername: string) =>
+    http.post(`/admin/users/${uid}/delete`, { confirm_username: confirmUsername }).then(r => r.data),
   // 微信绑定
   wechatBind: (code: string) => http.post('/auth/wechat/bind', { code }).then(r => r.data),
   wechatUnbind: () => http.post('/auth/wechat/unbind').then(r => r.data),
@@ -204,6 +224,30 @@ acceptSuggestion: (pid: string, sid: string) => http.post(`/community/projects/$
   // reading: content
   getReadingContent: (docId: string) =>
     http.get(`/reading/${docId}/content`).then(r => r.data),
+
+  // 听读：原文逐句朗读 + 逐句时间轴
+  listenStatus: (docId: string, params?: { voice?: string; speed?: number }) =>
+    http.get('/listen/status', { params: { document_id: docId, ...params } }).then(r => r.data),
+  listenPrepare: (data: { document_id: string; unit_index: number; voice?: string; speed?: number }) =>
+    http.post('/listen/prepare', data).then(r => r.data),
+
+  // 听读：讲（Episode）—— 播放列表/连播/断点续听的单位
+  listenAlbum: (projectId: string, kind = 'read') =>
+    http.get('/listen/album', { params: { project_id: projectId, kind } }).then(r => r.data),
+  listenEpisodes: (docId: string, params?: { kind?: string; voice?: string; speed?: number }) =>
+    http.get('/listen/episodes', { params: { document_id: docId, ...params } }).then(r => r.data),
+  listenEpisodeDetail: (id: string) =>
+    http.get(`/listen/episodes/${id}`).then(r => r.data),
+  /** 开始生成；立刻返回（202），进度走 listenEpisodeEvents */
+  listenEpisodeGenerate: (id: string) =>
+    http.post(`/listen/episodes/${id}/generate`).then(r => r.data),
+  listenEpisodeEventsUrl: (id: string) => `/api/listen/episodes/${id}/events`,
+  listenEpisodeAudioUrl: (id: string) => `/api/listen/episodes/${id}/audio`,
+  listenSaveProgress: (id: string, data: { position_ms: number; finished?: boolean }) =>
+    http.put(`/listen/episodes/${id}/progress`, data).then(r => r.data),
+  listenContinue: (projectId?: string) =>
+    http.get('/listen/continue', { params: { project_id: projectId } }).then(r => r.data),
+
   // reading: annotations
   listAnnotations: (docId: string) =>
     http.get(`/reading/${docId}/annotations`).then(r => r.data),
@@ -285,6 +329,18 @@ async function* readSSE(resp: Response): AsyncGenerator<any> {
       try { yield JSON.parse(payload) } catch { /* 跳过畸形行 */ }
     }
   }
+}
+
+/**
+ * 消费 **GET** 型 SSE（听读讲生成进度用）。
+ *
+ * 已经有的是 POST 型 streamSSE——生成进度是「开始」和「看进度」两步分开的，
+ * 进度这条要能反复重连（换标签页/刷新都在看同一场生成），所以是 GET。
+ * 完成后主动关闭连接：浏览器的 EventSource 会自己重连，这里用 fetch 流手动控制。
+ */
+export async function* streamSSEGet(url: string, signal?: AbortSignal): AsyncGenerator<any> {
+  const resp = await fetch(url, { headers: { Accept: 'text/event-stream' }, signal })
+  for await (const evt of readSSE(resp)) yield evt
 }
 
 /**

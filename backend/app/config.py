@@ -4,9 +4,33 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+# 项目根目录（backend 的上一层）
+PROJECT_DIR = BASE_DIR.parent
 
 # 数据目录：打包版通过环境变量 YQ_DATA_DIR 指向 exe 旁的 data/；开发默认 backend/data
 DATA_DIR = Path(os.environ.get("YQ_DATA_DIR") or (BASE_DIR / "data"))
+
+
+def _resolve_content_dir() -> Path:
+    """手写课程卡内容库根目录（每学科一个子目录，每文件一张卡）。
+
+    解析顺序：
+      1. 环境变量 YQ_CONTENT_DIR（打包版 / 想把卡放外面时用）
+      2. 项目根目录下 学习平台/内容库（开发默认）
+      3. DATA_DIR/内容库（打包版兜底：把卡塞进 exe 旁的 data/）
+    都不存在时返回 DATA_DIR/内容库 —— load_cards 会返回空、回退 LLM 生成，
+    但会打日志，不再静默。
+    """
+    env = os.environ.get("YQ_CONTENT_DIR")
+    if env:
+        return Path(env)
+    for candidate in (PROJECT_DIR / "学习平台" / "内容库", DATA_DIR / "内容库"):
+        if candidate.is_dir():
+            return candidate
+    return DATA_DIR / "内容库"
+
+
+CONTENT_DIR = _resolve_content_dir()
 
 
 class Settings(BaseSettings):
@@ -39,6 +63,10 @@ class Settings(BaseSettings):
     wechat_app_secret: str = ""
     # 用户自有 API Key 加密密钥（fernet）；留空则每次启动随机生成（重启后旧 Key 失效）
     api_key_encrypt_secret: str = ""
+
+    # 匿名回退到 local_user：开发/单机自用时为 True（未登录也能读写自己的书）。
+    # **公开部署必须置 False**，否则未登录请求会拿到 local_user 名下（即主人）的全部数据。
+    allow_anonymous_local: bool = True
 
     # AI 播客 / 通用 TTS
     # provider: edge（默认，免费免 Key）/ volc_mega（豆包大模型音色）/ volc_standard（豆包普通音色）/

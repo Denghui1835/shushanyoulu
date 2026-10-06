@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, DateTime, Integer, func
+from sqlalchemy import Boolean, String, Text, DateTime, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -33,6 +33,10 @@ class User(Base):
     last_topic: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # 管理员：唯一，就是认领了 local_user 行的那个账号（首个注册者）。见 api/admin.py
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # 停用/封禁：置 0 后不能登录、已有 token 全部失效（core/auth.py 里强制）
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     @property
     def is_onboarded(self) -> bool:

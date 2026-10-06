@@ -47,16 +47,21 @@ async def init_db():
     await _migrate_project_categories()
     await _ensure_ncre_course()
     await _ensure_ncre_c()
+    await _migrate_legacy_user_api_keys()
     logger.info("Database initialized at %s", settings.database_url)
 
 
 def _ensure_columns(conn):
-    """SQLite 轻量迁移：为已有表补齐新增列（create_all 不会改已有表）。"""
+    """SQLite 轻量迁移：为已有表补齐新增列（create_all 不会改已有表）。
+    每个条目是 (列名, DDL)。DDL 可以是单条语句，也可以是语句元组——
+    后者用于「加列 + 随附一次性数据回填」，只在列刚建时执行，不会重复跑。
+    """
     for table, columns in _COLUMN_MIGRATIONS.items():
         cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
         for name, ddl in columns:
             if name not in cols:
-                conn.execute(text(ddl))
+                for stmt in ([ddl] if isinstance(ddl, str) else ddl):
+                    conn.execute(text(stmt))
                 logger.info("Migrated: added %s.%s", table, name)
 
 
@@ -96,6 +101,14 @@ _COLUMN_MIGRATIONS = {
         ("last_subject", "ALTER TABLE users ADD COLUMN last_subject VARCHAR(64)"),
         ("last_topic", "ALTER TABLE users ADD COLUMN last_topic VARCHAR(128)"),
         ("last_activity_at", "ALTER TABLE users ADD COLUMN last_activity_at DATETIME"),
+        # 管理员：回填既有库的「主人」= 认领了 local_user 行的那条（首个注册者）。
+        # 全新安装时这里命中 0 行，改由 api/auth.py::register 的首个账号分支显式置位。
+        ("is_admin", (
+            "ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0",
+            "UPDATE users SET is_admin=1 WHERE id='local_user'",
+        )),
+        # 停用/封禁：默认全部启用，既有行无需回填
+        ("is_active", "ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1"),
     ],
     "projects": [
         ("is_public", "ALTER TABLE projects ADD COLUMN is_public BOOLEAN DEFAULT 0"),
@@ -107,6 +120,16 @@ _COLUMN_MIGRATIONS = {
         ("learn_count", "ALTER TABLE projects ADD COLUMN learn_count INTEGER DEFAULT 0"),
         ("star_count", "ALTER TABLE projects ADD COLUMN star_count INTEGER DEFAULT 0"),
         ("fork_count", "ALTER TABLE projects ADD COLUMN fork_count INTEGER DEFAULT 0"),
+        ("visibility", (
+            "ALTER TABLE projects ADD COLUMN visibility VARCHAR(16) DEFAULT 'private'",
+            # 回填：旧模型只有 is_public 布尔，公开的项目不能因为新列默认值而变私有
+            "UPDATE projects SET visibility='public' WHERE is_public=1",
+        )),
+        ("license", "ALTER TABLE projects ADD COLUMN license VARCHAR(64) DEFAULT ''"),
+        ("allow_fork", "ALTER TABLE projects ADD COLUMN allow_fork BOOLEAN DEFAULT 0"),
+        ("forked_from_id", "ALTER TABLE projects ADD COLUMN forked_from_id VARCHAR(36) DEFAULT ''"),
+        ("upstream_id", "ALTER TABLE projects ADD COLUMN upstream_id VARCHAR(36) DEFAULT ''"),
+        ("is_shared", "ALTER TABLE projects ADD COLUMN is_shared BOOLEAN DEFAULT 0"),
     ],
     "schedule_slots": [
         ("notify_on_start", "ALTER TABLE schedule_slots ADD COLUMN notify_on_start BOOLEAN DEFAULT 0"),
@@ -160,6 +183,70 @@ async def _ensure_ncre_c():
     from app.core.ncre_c import ensure_ncre_c
 
     await ensure_ncre_c()
+
+
+def _guess_provider_from_url(base_url: str | None) -> str:
+    """从旧的 api_base_url 猜服务商（旧的单 Key 时代只存了地址，没存服务商名）。"""
+    url = (base_url or "").lower()
+    if "dashscope" in url or "aliyuncs" in url:
+        return "dashscope"
+    if "moonshot" in url:
+        return "moonshot"
+    if "bigmodel" in url:
+        return "zhipu"
+    if "openai.com" in url:
+        return "openai"
+    if "deepseek" in url or not url:
+        return "deepseek"
+    return "custom"
+
+
+async def _migrate_legacy_user_api_keys():
+    """把旧的「单 Key 三元组」（users.api_key_encrypted/base_url/model）迁成 text 档。
+
+    幂等：已有 text 档的用户直接跳过。旧列**保留不删**（SQLite 删列麻烦且无必要），
+    只是此后不再写入。
+
+    注意：旧版本没固定加密密钥（见 core/crypto.py），历史上存的密文很可能**已经解不开**。
+    这种情况只记 warning 点名、不写行，让用户在个人中心重填 —— 不要假装迁移成功。
+    """
+    from app.core.crypto import decrypt_api_key, encrypt_secret
+    from app.models import User, UserProviderConfig
+
+    async with async_session() as db:
+        users = (await db.execute(
+            select(User).where(User.api_key_encrypted.is_not(None), User.api_key_encrypted != "")
+        )).scalars().all()
+        if not users:
+            return
+
+        have = set((await db.execute(
+            select(UserProviderConfig.user_id).where(UserProviderConfig.capability == "text")
+        )).scalars().all())
+
+        migrated = 0
+        for u in users:
+            if u.id in have:
+                continue
+            plain = decrypt_api_key(u.api_key_encrypted or "")
+            if not plain:
+                logger.warning(
+                    "用户 %s 的旧 API Key 无法解密（历史密钥未固定），需在个人中心重新填写", u.id)
+                continue
+            db.add(UserProviderConfig(
+                user_id=u.id,
+                capability="text",
+                provider=_guess_provider_from_url(u.api_base_url),
+                base_url=u.api_base_url,
+                model=u.api_model or "deepseek-chat",
+                secret_encrypted=encrypt_secret({"api_key": plain}),
+                options_json="{}",
+            ))
+            migrated += 1
+
+        if migrated:
+            await db.commit()
+            logger.info("迁移了 %d 个用户的旧 API Key 到 text 档", migrated)
 
 
 async def _ensure_default_project():

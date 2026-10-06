@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db, ensure_default_project
 from app.core.parsing import parse_file, chunk_text, estimate_tokens
+from app.core.paths import resolve_doc_file
 from app.models import (
     Document, Chunk, User, KnowledgePoint, Question, Flashcard,
     Annotation, DocSummary, QuizRecord, Project, PodcastScript, Drawing, BlankCache,
@@ -275,8 +276,8 @@ async def get_document_file(doc_id: str, db: AsyncSession = Depends(get_db)):
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    path = Path(doc.file_path)
-    if not path.exists():
+    path = resolve_doc_file(doc.file_path)
+    if path is None:
         raise HTTPException(status_code=404, detail="原文件不存在")
     return FileResponse(path, filename=doc.filename or doc.title)
 

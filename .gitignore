@@ -38,3 +38,6 @@ backend/data/podcast_audio/
 
 # Logs
 *.log
+
+# Office 临时锁文件
+~$*

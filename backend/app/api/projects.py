@@ -28,11 +28,10 @@ from app.core.book_split import (
 from app.core.parsing import parse_file, chunk_text
 from app.core.voice_agent import run_agent_turn
 from app.core.project_package import export_project, import_project
+from app.core.access import LOCAL_USER_ID, get_owned_project as _get_owned_project, owner_id as _owner_id
 
 logger = logging.getLogger("yuanqi.api.projects")
 router = APIRouter(prefix="/api/projects", tags=["projects"])
-
-LOCAL_USER_ID = "local_user"
 
 # 整书原文件命名：book_<8hex>_<原始文件名>.pdf（见 import_book）
 _BOOK_FILE_RE = re.compile(r"^book_[0-9a-f]{8}_(.+)$")
@@ -67,8 +66,13 @@ class ReorderIn(BaseModel):
 
 
 @router.get("")
-async def list_projects(db: AsyncSession = Depends(get_db)):
-    projects = (await db.execute(select(Project).order_by(Project.created_at))).scalars().all()
+async def list_projects(db: AsyncSession = Depends(get_db),
+                        user: User | None = Depends(get_optional_user)):
+    """我的书架：只返回归属于当前用户的项目（公开项目去「书山 Hub」广场发现）。"""
+    owner_id = _owner_id(user)
+    projects = (await db.execute(
+        select(Project).where(Project.user_id == owner_id).order_by(Project.created_at)
+    )).scalars().all()
     counts = dict((await db.execute(
         select(Document.project_id, func.count())
         .where(Document.project_id.is_not(None), Document.content_type != "group")
@@ -103,8 +107,10 @@ async def create_project(data: ProjectIn, db: AsyncSession = Depends(get_db),
 
 
 @router.get("/export/{project_id}")
-async def export_project_endpoint(project_id: str, db: AsyncSession = Depends(get_db)):
+async def export_project_endpoint(project_id: str, db: AsyncSession = Depends(get_db),
+                                  user: User | None = Depends(get_optional_user)):
     """导出项目为 .yqp（zip）文件，供社区分享/下载。"""
+    await _get_owned_project(db, project_id, user, write=False)
     try:
         content = await export_project(db, project_id)
     except ValueError as e:
@@ -140,10 +146,9 @@ async def import_project_endpoint(file: UploadFile = File(...),
 
 
 @router.get("/{project_id}")
-async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
-    p = await db.get(Project, project_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="项目不存在")
+async def get_project(project_id: str, db: AsyncSession = Depends(get_db),
+                      user: User | None = Depends(get_optional_user)):
+    p = await _get_owned_project(db, project_id, user, write=False)
     docs = (await db.execute(
         select(Document).where(Document.project_id == project_id)
         .order_by(Document.sort_order, Document.created_at)
@@ -186,10 +191,9 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{project_id}")
-async def update_project(project_id: str, data: ProjectUpdate, db: AsyncSession = Depends(get_db)):
-    p = await db.get(Project, project_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="项目不存在")
+async def update_project(project_id: str, data: ProjectUpdate, db: AsyncSession = Depends(get_db),
+                         user: User | None = Depends(get_optional_user)):
+    p = await _get_owned_project(db, project_id, user)
     if data.title is not None:
         if not data.title.strip():
             raise HTTPException(status_code=400, detail="项目名称不能为空")
@@ -208,10 +212,9 @@ async def update_project(project_id: str, data: ProjectUpdate, db: AsyncSession 
 
 
 @router.delete("/{project_id}")
-async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
-    p = await db.get(Project, project_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="项目不存在")
+async def delete_project(project_id: str, db: AsyncSession = Depends(get_db),
+                         user: User | None = Depends(get_optional_user)):
+    await _get_owned_project(db, project_id, user)
     # 收集该项目引用的整书文件，删除章节后清理不再被引用的孤儿整书
     book_paths = set((await db.execute(
         select(Document.book_file_path).where(
@@ -228,11 +231,10 @@ async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{project_id}/reorder")
-async def reorder_documents(project_id: str, data: ReorderIn, db: AsyncSession = Depends(get_db)):
+async def reorder_documents(project_id: str, data: ReorderIn, db: AsyncSession = Depends(get_db),
+                            user: User | None = Depends(get_optional_user)):
     """章节排序：按 document_ids 顺序写入 sort_order。"""
-    p = await db.get(Project, project_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="项目不存在")
+    await _get_owned_project(db, project_id, user)
     existing = set((await db.execute(
         select(Document.id).where(Document.project_id == project_id)
     )).scalars().all())
@@ -252,6 +254,7 @@ async def import_book(
     start_page: int | None = Form(None),
     end_page: int | None = Form(None),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     """导入整书 PDF（可指定页码范围分批导入）：识别目录 → 依据目录切成多个章节。
 
@@ -263,9 +266,7 @@ async def import_book(
       {"type":"done","chapters":[...],"warnings":[...],"message":str}
       {"type":"error","message":str}                        // 退化/失败时明确报错
     """
-    p = await db.get(Project, project_id)
-    if not p:
-        raise HTTPException(status_code=404, detail="项目不存在")
+    p = await _get_owned_project(db, project_id, user)
     filename = file.filename or ""
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="整书导入仅支持 PDF")

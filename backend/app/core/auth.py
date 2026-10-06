@@ -55,18 +55,35 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     user = await db.get(User, row.user_id)
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="该账号已被停用")
     return user
 
 
 async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)) -> User | None:
-    """可选认证：有合法 token 返回该用户，否则返回 None（本地免登录场景也用）。"""
+    """可选认证：有合法 token 返回该用户，否则返回 None（本地免登录场景也用）。
+
+    已停用的账号**必须抛 403，不能返回 None**：`core/access.py::owner_id(None)` 在
+    `allow_anonymous_local=True` 时会回退到 `local_user`（即主人），把被封的人当匿名
+    放行反而拿到了主人的全部数据——封禁就成了摆设。所以这里宁可报错也不能降级。
+    """
     token = _extract_token(request)
     if not token:
         return None
     row = (await db.execute(select(AuthToken).where(AuthToken.token == token))).scalars().first()
     if not row:
         return None
-    return await db.get(User, row.user_id)
+    user = await db.get(User, row.user_id)
+    if user is not None and not user.is_active:
+        raise HTTPException(status_code=403, detail="该账号已被停用")
+    return user
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    """管理后台专用依赖：非管理员一律 403（get_current_user 已挡掉未登录与已停用）。"""
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    return user
 
 
 async def issue_token(db: AsyncSession, user: User) -> str:
@@ -79,3 +96,19 @@ async def issue_token(db: AsyncSession, user: User) -> str:
 async def revoke_token(db: AsyncSession, token: str) -> None:
     await db.execute(delete(AuthToken).where(AuthToken.token == token))
     await db.commit()
+
+
+async def revoke_all_tokens(db: AsyncSession, user_id: str, keep: str | None = None) -> int:
+    """吊销某用户的全部登录令牌 —— 强制下线的唯一手段。
+
+    这里没有「每次请求校验密码」的机制，token 一旦签发就长期有效，所以
+    重置密码/停用账号若不删 token，等于什么都没做。
+
+    `keep`：保留某一枚 token 不删（管理员改自己密码时别把自己踢下线）。
+    返回实际删掉的行数。**不 commit**，由调用方与其它写操作一起提交。
+    """
+    stmt = delete(AuthToken).where(AuthToken.user_id == user_id)
+    if keep:
+        stmt = stmt.where(AuthToken.token != keep)
+    result = await db.execute(stmt)
+    return int(result.rowcount or 0)

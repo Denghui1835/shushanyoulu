@@ -21,6 +21,7 @@ from sqlalchemy import select
 from app.config import settings, DATA_DIR
 from app.database import init_db, async_session
 from app.core.api_scheduler.client import set_current_user_id
+from app.core.api_scheduler import api_client
 from app.models import AuthToken, User
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -60,6 +61,11 @@ async def startup_init():
     else:
         logger.warning("未配置 API Key，请在 backend/.env 设置 DEEPSEEK_API_KEY")
 
+    # 放在全局适配器之后：注册表里全局键必须排在前面，全局回退才稳。
+    # 不跑这一步，用户重启后自有 Key 会静默失效、偷偷跑服务器的额度。
+    from app.core.provider_config import reload_user_adapters
+    await reload_user_adapters()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,7 +91,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def set_user_llm_context(request: Request, call_next):
-    """已登录且配置了自有 API Key 的用户 → 本次请求的 LLM 调用用其适配器（开源免费：用户自理 Key 费用）。"""
+    """已登录且配置了自有服务商的用户 → 本次请求的 LLM 调用用其适配器（开源免费：用户自理 Key 费用）。"""
     try:
         header = request.headers.get("authorization", "")
         if header.lower().startswith("bearer "):
@@ -97,7 +103,9 @@ async def set_user_llm_context(request: Request, call_next):
                     )).scalars().first()
                     if row:
                         u = await db.get(User, row.user_id)
-                        if u and u.api_key_encrypted:
+                        # 判据是「内存注册表里真有他的适配器」，而不是「库里有没有密文」：
+                        # 密文在但解不开（换过加密密钥）时，前者才如实反映可用性。
+                        if u and u.is_active and api_client.has_any_user_adapter(u.id):
                             set_current_user_id(u.id)
     except Exception:
         pass
@@ -117,6 +125,7 @@ from app.api.pipeline import router as pipeline_router
 from app.api.study import router as study_router
 from app.api.reading import router as reading_router
 from app.api.podcast import router as podcast_router
+from app.api.listen import router as listen_router
 from app.api.community import router as community_router
 from app.api.auth import router as auth_router
 from app.api.profile import router as profile_router
@@ -126,6 +135,8 @@ from app.api.kanban import router as kanban_router
 from app.api.schedules import router as schedules_router
 from app.api.course import router as course_router
 from app.api.social import router as social_router
+from app.api.system import router as system_router
+from app.api.admin import router as admin_router
 
 app.include_router(companion_router)
 app.include_router(lesson_router)
@@ -138,6 +149,7 @@ app.include_router(pipeline_router)
 app.include_router(study_router)
 app.include_router(reading_router)
 app.include_router(podcast_router)
+app.include_router(listen_router)
 app.include_router(community_router)
 app.include_router(auth_router)
 app.include_router(profile_router)
@@ -147,6 +159,8 @@ app.include_router(kanban_router)
 app.include_router(schedules_router)
 app.include_router(course_router)
 app.include_router(social_router)
+app.include_router(system_router)
+app.include_router(admin_router)
 
 
 @app.get("/")

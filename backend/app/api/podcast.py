@@ -12,15 +12,17 @@ from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import get_optional_user
 from app.database import get_db
 from app.core.podcast import (
     generate_podcast_script, edit_podcast_script, update_podcast_script, undo_podcast_script,
 )
 from app.core.podcast_tts import (
-    TTSNotConfiguredError, TTSError, estimate_audio_seconds, script_to_audio,
+    TTSNotConfiguredError, TTSError, estimate_audio_seconds, resolve_tts_context,
+    script_to_audio,
 )
 from app.core.reading_content import get_reading_units
-from app.models import Document, PodcastScript
+from app.models import Document, PodcastScript, User
 
 logger = logging.getLogger("yuanqi.api.podcast")
 router = APIRouter(prefix="/api/podcast", tags=["podcast"])
@@ -198,14 +200,17 @@ async def get_script(document_id: str, unit_index: int = 0, db: AsyncSession = D
 # ---------------------------------------------------------------- 音频
 
 @router.post("/{document_id}/audio")
-async def generate_audio(document_id: str, unit_index: int = 0, db: AsyncSession = Depends(get_db)):
+async def generate_audio(document_id: str, unit_index: int = 0,
+                         db: AsyncSession = Depends(get_db),
+                         user: User | None = Depends(get_optional_user)):
     """基于已生成文稿合成播客音频（同步返回，成功后可用 GET audio 试听/下载）。"""
     await _get_doc(db, document_id)
     script = await _get_script(db, document_id, unit_index)
     if not script or not script.content or script.status != "done":
         raise HTTPException(status_code=400, detail="请先生成播客文稿")
     try:
-        script = await script_to_audio(db, script)
+        script = await script_to_audio(
+            db, script, tts_ctx=await resolve_tts_context(db, user.id if user else None))
     except TTSNotConfiguredError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except TTSError as e:

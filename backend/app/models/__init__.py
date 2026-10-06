@@ -14,6 +14,8 @@ from app.models.reading import Annotation, DocSummary, PodcastScript, BlankCache
 from app.models.kanban import KanbanColumn, KanbanCard
 from app.models.schedule import Schedule, ScheduleSlot, PlanNotification
 from app.models.social import SocialPost, SocialLike
+from app.models.listening import Episode, PlaybackProgress
+from app.models.credentials import UserProviderConfig
 
 __all__ = [
     "User", "AuthToken", "Project", "LearningPlan", "PlanTask", "CheckIn",
@@ -25,4 +27,6 @@ __all__ = [
     "KanbanColumn", "KanbanCard",
     "Schedule", "ScheduleSlot",
     "SocialPost", "SocialLike",
+    "Episode", "PlaybackProgress",
+    "UserProviderConfig",
 ]

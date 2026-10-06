@@ -8,7 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app.core.podcast_tts import synthesize_text, list_voices, TTSNotConfiguredError, TTSError
+from app.core.auth import get_optional_user
+from app.core.podcast_tts import (
+    synthesize_text, list_voices, resolve_tts_context,
+    TTSNotConfiguredError, TTSError,
+)
+from app.database import get_db
+from app.models import User
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("yuanqi.api.tts")
 router = APIRouter(prefix="/api/tts", tags=["tts"])
@@ -28,8 +35,12 @@ class TTSIn(BaseModel):
 
 
 @router.post("/synthesize")
-async def synthesize(data: TTSIn):
-    """合成一段语音，返回音频（mp3/wav）。"""
+async def synthesize(data: TTSIn, db: AsyncSession = Depends(get_db),
+                     user: User | None = Depends(get_optional_user)):
+    """合成一段语音，返回音频（mp3/wav）。
+
+    未显式指定 provider 时用**当前用户自己的语音档**（没配则回落全局 edge 免费档）。
+    """
     text = (data.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="文本不能为空")
@@ -37,8 +48,10 @@ async def synthesize(data: TTSIn):
         raise HTTPException(status_code=400, detail="文本过长（≤2000 字）")
     speed = max(0.5, min(2.0, data.speed or 1.0))
     try:
+        tts_ctx = await resolve_tts_context(db, user.id if user else None)
         audio = await synthesize_text(text, voice=data.voice or None,
-                                      speed=speed, provider=data.provider or None)
+                                      speed=speed, provider=data.provider or None,
+                                      tts_ctx=tts_ctx)
     except TTSNotConfiguredError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except TTSError as e:

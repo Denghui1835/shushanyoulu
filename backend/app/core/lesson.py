@@ -19,7 +19,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.config import CONTENT_DIR, settings
 from app.core.api_scheduler import api_client
 from app.core.api_scheduler.adapters.base import AdapterConfig
 from app.core.retrieval import retrieve
@@ -27,8 +27,8 @@ from app.models import Lesson, StudyLog, TopicProgress, User, SocialPost
 
 logger = logging.getLogger("yuanqi.lesson")
 
-# 课程卡内容库根目录（学习平台攒的卡）
-CONTENT_DIR = Path("D:/南农模型/学习平台/内容库")
+# 内容来源：优先用「课程卡内容库」（CONTENT_DIR/{subject}/*.json，每文件一张卡），
+# 没有卡时由 LLM 实时生成。CONTENT_DIR 由 app.config 解析（见 _resolve_content_dir）。
 
 # 默认最多教几轮（可中途由学习者结束）
 DEFAULT_MAX_ROUNDS = 6
@@ -220,6 +220,13 @@ def list_card_files(subject: str) -> list[Path]:
     """列出某学科内容库里的课程卡文件（.json，每文件一张卡）。"""
     subj_dir = CONTENT_DIR / subject
     if not subj_dir.is_dir():
+        if not CONTENT_DIR.is_dir():
+            logger.warning(
+                "课程卡内容库目录不存在：%s（将全部回退 LLM 现生成；"
+                "可用环境变量 YQ_CONTENT_DIR 覆盖）", CONTENT_DIR,
+            )
+        else:
+            logger.info("学科 %s 没有课程卡目录（%s），回退 LLM 生成", subject, subj_dir)
         return []
     return sorted(subj_dir.glob("*.json"))
 
@@ -393,7 +400,10 @@ async def start_lesson(db: AsyncSession, user: User, subject: str, topic: str) -
     cards = load_cards(subject)
     card = pick_card(cards, topic)
     if card is None:
+        logger.info("考点「%s」无课程卡（学科 %s 共 %d 张卡），LLM 现生成", topic, subject, len(cards))
         card = await _generate_card(db, user, subject, topic)
+    else:
+        logger.info("考点「%s」命中手写课程卡（学科 %s 共 %d 张卡）", topic, subject, len(cards))
     card = _normalize_card(card or {})
 
     lesson = Lesson(

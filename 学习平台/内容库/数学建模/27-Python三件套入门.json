@@ -1,0 +1,10 @@
+{
+  "topic": "Python三件套入门",
+  "teach": "比赛求解几乎全靠Python，只要会三件套就能应付90%的题：numpy（数值计算——数组、矩阵、统计）、pandas（表格数据——读CSV/Excel、筛选、分组、清洗）、matplotlib（画图——折线、散点、柱状、热力图）。学习顺序：①pandas读数据、看数据；②numpy算统计量；③matplotlib出图。比喻：三件套像厨房三件套——pandas是洗菜切菜（整理数据），numpy是炒菜（计算），matplotlib是摆盘（出图）。",
+  "question": "pandas、numpy、matplotlib 三件套各自管什么？",
+  "options": ["pandas整理表格、numpy算数、matplotlib画图", "pandas画图、numpy整理、matplotlib算数", "三个都管一样的事", "pandas算数、numpy画图、matplotlib整理"],
+  "answer_index": 0,
+  "explanation": "pandas管『表格数据』、numpy管『数值计算』、matplotlib管『出图』，三者接力。",
+  "common_error": "把三个库的用途记混。记法：洗菜(整理)→炒菜(算)→摆盘(画)。",
+  "comment": "答对：那读取Excel用哪个库？答错：记住『整理→算→画』的分工。"
+}

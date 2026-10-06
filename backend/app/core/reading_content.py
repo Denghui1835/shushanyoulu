@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Document, Chunk
+from app.core.paths import resolve_doc_file
 
 logger = logging.getLogger("yuanqi.reading")
 
@@ -36,9 +37,9 @@ async def get_reading_units(db: AsyncSession, document: Document) -> list[dict]:
 
 def _pdf_pages(document: Document) -> list[dict]:
     """PDF：逐页提取文本，每页一个单元。"""
-    path = Path(document.file_path)
-    if not path.exists():
-        logger.warning("PDF file missing: %s", path)
+    # 路径兜底解析：库里的绝对路径可能因项目改名/搬迁而失效（见 core/paths.py）
+    path = resolve_doc_file(document.file_path)
+    if path is None:
         return []
 
     try:

@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.paths import resolve_doc_file
 from app.models import (
     Project, Document, Chunk, KnowledgePoint, Question, QuizRecord,
     Flashcard, Annotation, DocSummary, PodcastScript,
@@ -64,9 +65,10 @@ async def export_project(db: AsyncSession, project_id: str) -> bytes:
         for d in docs:
             dd = _row(d)
             # 章节原文件（阅读/学习内容）必须带上
-            if d.file_path and Path(d.file_path).exists():
-                rel = f"files/{d.id}_{Path(d.file_path).name}"
-                z.writestr(rel, Path(d.file_path).read_bytes())
+            src = resolve_doc_file(d.file_path)
+            if src is not None:
+                rel = f"files/{d.id}_{src.name}"
+                z.writestr(rel, src.read_bytes())
                 dd["file_rel"] = rel
             # 整书原文件（book_file_path）与章节内容重复、体积大，导出时跳过；
             # 导入后章节仍可阅读，但「调节章节范围/预览整书」不可用（page_start/page_end 保留）

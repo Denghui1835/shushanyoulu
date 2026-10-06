@@ -31,4 +31,11 @@ class Project(Base):
     learn_count: Mapped[int] = mapped_column(Integer, default=0)       # 被学习次数
     star_count: Mapped[int] = mapped_column(Integer, default=0)        # 被收藏次数
     fork_count: Mapped[int] = mapped_column(Integer, default=0)        # 被 Fork 次数
+    # 书山 Hub（课程即仓库）字段
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)  # private | unlisted | public
+    license: Mapped[str] = mapped_column(String(64), default="")       # 许可协议（SPDX 风格），空 = 未声明
+    allow_fork: Mapped[bool] = mapped_column(default=False)            # 是否允许被 Fork
+    forked_from_id: Mapped[str] = mapped_column(String(36), default="")  # 直接上游仓库
+    upstream_id: Mapped[str] = mapped_column(String(36), default="")     # 根仓库（Fork 链顶端）
+    is_shared: Mapped[bool] = mapped_column(default=False)             # 平台预置精品课（官方账号名下）
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

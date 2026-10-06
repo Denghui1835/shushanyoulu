@@ -31,6 +31,34 @@ def get_current_user_id() -> str:
     return _current_user_id.get()
 
 
+class VisionNotConfiguredError(RuntimeError):
+    """用户没有配置「视觉」档，而当前调用需要看图。
+
+    刻意**不**回落到文本档：文本模型收下 image_url 块要么报一个看不懂的错，
+    要么（更糟）假装没看见图片、照着文字瞎编一段描述。宁可明确说没配。
+    """
+
+    def __init__(self, user_id: str = ""):
+        who = f"用户 {user_id} " if user_id else ""
+        super().__init__(
+            f"{who}尚未配置「视觉」服务商，图片识别不可用。"
+            "请到「个人中心 → AI 服务商」的「视觉」一档填写支持看图的模型"
+            "（如 qwen-vl-max / glm-4v-plus / gpt-4o）。"
+        )
+
+
+# 用户适配器的注册键前缀：cap:{capability}:{user_id}
+_CAP_PREFIX = "cap:"
+
+
+def _cap_key(capability: str, user_id: str) -> str:
+    return f"{_CAP_PREFIX}{capability}:{user_id}"
+
+
+# 过渡期的旧键格式：deepseek-chat_{user_id}
+_LEGACY_USER_KEY_PREFIX = "deepseek-chat_"
+
+
 class TaskType(str, Enum):
     KNOWLEDGE_TREE = "knowledge_tree"
     QUIZ_GEN = "quiz_gen"
@@ -81,6 +109,9 @@ class UnifiedAPIClient:
     def __init__(self):
         self._adapters: dict[str, BaseModelAdapter] = {}
         self._adapter_configs: dict[str, dict] = {}
+        # 用户自有适配器的键（cap:... 与过渡期旧键）。全局回退必须跳过它们，
+        # 否则注册表里一混进用户适配器，就可能把 A 的 Key 发给 B。
+        self._user_keys: set[str] = set()
 
     def configure_adapter(
         self,
@@ -125,28 +156,89 @@ class UnifiedAPIClient:
         }
 
     def configure_user_adapter(self, user_id: str, api_key: str,
-                               base_url: str | None = None, model_name: str | None = None):
-        """为用户注册独立的 LLM 适配器（用户自理 Key）。
+                               base_url: str | None = None, model_name: str | None = None,
+                               capability: str = "text", provider: str = "deepseek"):
+        """为用户注册「某一档能力」的适配器（用户自理 Key）。
 
-        key 为 deepseek-chat_{user_id}，get_adapter 在 contextvar 设了该用户时会优先命中。
+        注册键是 `cap:{capability}:{user_id}`，因此同一个用户可以同时有
+        文本档（DeepSeek）和视觉档（qwen-vl）两套互不干扰的凭据 ——
+        这正是「一个 Key 包办所有能力」那个设计答不了的问题。
+
+        `capability == "text"` 时**额外**写一个过渡旧键 `deepseek-chat_{user_id}`，
+        因为旧代码里散落着按这个格式查的地方；下个版本再摘。
         """
-        adapter = OpenAICompatAdapter(
+        provider = provider or "deepseek"
+        adapter = self._build_adapter(provider, api_key, base_url, model_name, capability)
+        adapter.provider = provider
+
+        key = _cap_key(capability, user_id)
+        self._adapters[key] = adapter
+        self._user_keys.add(key)
+        self._adapter_configs[key] = {
+            "api_key": api_key, "base_url": base_url, "model_name": model_name,
+            "capability": capability, "provider": provider, "user_id": user_id,
+        }
+
+        if capability == "text":
+            legacy = f"{_LEGACY_USER_KEY_PREFIX}{user_id}"
+            self._adapters[legacy] = adapter
+            self._user_keys.add(legacy)
+
+    @staticmethod
+    def _build_adapter(provider: str, api_key: str, base_url: str | None,
+                       model_name: str | None, capability: str = "text"):
+        """按服务商建适配器。用户适配器一律走 OpenAI 兼容协议（base_url + model
+        由用户给），只有 anthropic / ollama 有专用实现。"""
+        from app.core.provider_presets import default_base_url, default_model
+
+        if provider == "anthropic":
+            return AnthropicAdapter(
+                api_key=api_key,
+                base_url=base_url or "https://api.anthropic.com/v1",
+                model_name=model_name or "claude-sonnet-4-6",
+            )
+        if provider == "ollama":
+            return OllamaAdapter(
+                model_name=model_name or "qwen2.5:7b",
+                base_url=base_url or "http://localhost:11434/v1",
+            )
+        return OpenAICompatAdapter(
             api_key=api_key,
-            base_url=base_url or "https://api.deepseek.com/v1",
-            model_name=model_name or "deepseek-chat",
+            base_url=base_url or default_base_url(provider) or "https://api.deepseek.com/v1",
+            model_name=model_name or default_model(provider, capability),
         )
-        adapter.provider = "deepseek-chat"
-        self._adapters[f"deepseek-chat_{user_id}"] = adapter
 
-    def remove_user_adapter(self, user_id: str):
-        self._adapters.pop(f"deepseek-chat_{user_id}", None)
+    def remove_user_adapter(self, user_id: str, capability: str | None = None):
+        """摘掉某用户的适配器。capability 为 None 时摘掉该用户的所有档。"""
+        caps = [capability] if capability else ["text", "vision", "tts"]
+        for cap in caps:
+            key = _cap_key(cap, user_id)
+            self._adapters.pop(key, None)
+            self._adapter_configs.pop(key, None)
+            self._user_keys.discard(key)
+        if capability in (None, "text"):
+            legacy = f"{_LEGACY_USER_KEY_PREFIX}{user_id}"
+            self._adapters.pop(legacy, None)
+            self._user_keys.discard(legacy)
 
-    def get_adapter(self, model_ref: str, user_id: str | None = None) -> BaseModelAdapter:
+    def has_user_adapter(self, user_id: str, capability: str) -> bool:
+        return _cap_key(capability, user_id) in self._adapters
+
+    def has_any_user_adapter(self, user_id: str) -> bool:
+        """该用户是否有任意一档自有配置 —— 中间件据此决定要不要带用户身份。"""
+        return any(_cap_key(c, user_id) in self._adapters for c in ("text", "vision", "tts"))
+
+    def get_adapter(self, model_ref: str, user_id: str | None = None,
+                    capability: str = "text") -> BaseModelAdapter:
         """Get adapter by model reference. Supports 'provider/model_name' format.
         Falls back to any configured adapter if the exact provider isn't found.
 
-        When user_id is provided and not "local_user", tries a user-scoped
-        adapter first (keyed as 'provider_userid'), then falls back to global.
+        When user_id is provided and not "local_user", tries the user's own
+        adapter for this `capability` first (keyed 'cap:{capability}:{user_id}'),
+        then falls back to global.
+
+        `capability` 默认 "text" —— 现有约 15 处 `get_adapter(settings.default_model)`
+        调用点因此**一行都不用改**就能命中用户的文本档。
         """
         # Fall back to contextvar if no explicit user_id
         if not user_id or user_id == "local_user":
@@ -159,11 +251,13 @@ class UnifiedAPIClient:
         else:
             provider = model_ref
 
-        # Try user-scoped adapter first
+        # Try user-scoped adapter first —— 按能力查，不按 provider 查：
+        # 用户配的是「文本用 DeepSeek」，那文本调用就该命中它，
+        # 哪怕本次 model_ref 写的是别家名字。
         if user_id and user_id != "local_user":
-            user_provider = f"{provider}_{user_id}"
-            if user_provider in self._adapters:
-                return self._adapters[user_provider]
+            cap_key = _cap_key(capability, user_id)
+            if cap_key in self._adapters:
+                return self._adapters[cap_key]
 
         if provider not in self._adapters:
             # Try environment-configured key
@@ -177,13 +271,17 @@ class UnifiedAPIClient:
             env_var = env_key_map.get(provider)
             if env_var and os.getenv(env_var):
                 self.configure_adapter(provider, os.getenv(env_var))
-            elif self._adapters:
-                # Fall back to first configured adapter (common case: single API key)
-                fallback = list(self._adapters.keys())[0]
-                logger = __import__("logging").getLogger("knowall")
-                logger.info("Using fallback adapter '%s' for model '%s'", fallback, model_ref)
-                return self._adapters[fallback]
             else:
+                # Fall back to first *global* adapter. 必须跳过用户自有适配器：
+                # 注册表里一旦混进 cap:/用户后缀键，无脑取 [0] 就会把
+                # 甲用户的 Key 发给乙用户（串号）。
+                fallback = next(
+                    (k for k in self._adapters if k not in self._user_keys), None)
+                if fallback:
+                    logger = __import__("logging").getLogger("knowall")
+                    logger.info("Using fallback adapter '%s' for model '%s'",
+                                fallback, model_ref)
+                    return self._adapters[fallback]
                 raise ValueError(
                     f"No adapter configured for '{provider}'. "
                     f"Call configure_adapter() first or set environment variable."
@@ -344,12 +442,15 @@ class UnifiedAPIClient:
         image_type: str,
         prompt: str,
         context_text: str = "",
-        model: str = "gpt-4o",
+        model: str | None = None,
         user_id: str | None = None,
     ) -> str:
         """Analyze a single image using a vision-capable model.
 
         Returns the text description generated by the model.
+
+        走 `capability="vision"`：用户配了视觉档就用他的，没配则**直接报错**，
+        不回落到文本档（见 VisionNotConfiguredError 的说明）。
         """
         # Fall back to contextvar if no explicit user_id
         if not user_id or user_id == "local_user":
@@ -357,7 +458,14 @@ class UnifiedAPIClient:
             if ctxv != "local_user":
                 user_id = ctxv
 
-        adapter = self.get_adapter(model, user_id=user_id)
+        if not (user_id and self.has_user_adapter(user_id, "vision")):
+            raise VisionNotConfiguredError(user_id or "")
+
+        if not model:
+            cfg = self._adapter_configs.get(_cap_key("vision", user_id), {})
+            model = cfg.get("model_name") or settings.default_model
+
+        adapter = self.get_adapter(model, user_id=user_id, capability="vision")
 
         # Build multimodal message
         content_blocks = []
